@@ -5,7 +5,10 @@
             :url "http://www.eclipse.org/legal/epl-v10.html"}
   :dependencies [[org.clojure/clojure "1.4.0"]
                  [ring/ring-core "1.1.6"]
-                 [http.async.client "0.5.2"];client
-                 [clj-http "0.7.0"] ;client
-                 [http-kit "2.0.0"] 
-                 [ring/ring-jetty-adapter "1.1.6"]]);
+                 ;[http.async.client "0.5.2"];client
+                 ;[clj-http "0.7.0"] ;client
+                 ;[http-kit "2.0.0"] 
+                 ;[ring/ring-jetty-adapter "1.1.6"]
+                 [noir "1.3.0"]
+                 [org.clojure/data.json "0.2.1"]  
+                   ]);
