@@ -15,6 +15,7 @@
       (println "WebSocket channel")
       (println "HTTP channel"))
     (on-receive channel (fn [data]       ; data received from client
+                         (println "Received: " data)
            ;; An optional param can pass to send!: close-after-send?
            ;; When unspecified, `close-after-send?` defaults to true for HTTP channels
            ;; and false for WebSocket.  (send! channel data close-after-send?)
