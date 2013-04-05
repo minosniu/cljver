@@ -3,7 +3,7 @@
   (:import java.io.File))
 
 
-(def directory "D:/PFiles/Plugins") ; need to set directory
+(def directory "C:/") ; need to set directory
 (def files 
     (for [file (file-seq (clojure.java.io/file directory))] (.getName file))); save file list
 ;;print file list
@@ -11,8 +11,8 @@
   (println "Files in " (.getName d))
   (doseq [f (.listFiles d)]
     (if (.isDirectory f)
-      (print "d ")
-      (print "- "))
+      (print "d ")  ; d directory
+      (print "- ")) ; - file
     (println (.getName f))))
 (-> "/tmp" file .listFiles)
 (.listFiles (file "/tmp"))
