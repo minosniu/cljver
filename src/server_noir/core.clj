@@ -42,7 +42,7 @@
  })
 (def neuron {:name "IzhNeuron" :in in2 :out out2})
 
-(def Resp {:spindle spindle :neuron neuron})
+(def Resp (into-array [spindle neuron]))
 
 (defpage "/get_lib1" []
   (json/write-str spindle))
@@ -50,6 +50,10 @@
   (json/write-str neuron))
 (defpage "/get_lib3" []
   (json/write-str Resp)); combine two JSON into one map
+
+(defpage "/error" []
+  {:status 500
+   :body "Oh no! An error has occurred"})
 
 (server/start 8080 :jetty-options {:host "192.168.0.114" :join? false})
 ;(let [jetty (run-jetty app options)] (.stop jetty))
