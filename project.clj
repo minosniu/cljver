@@ -11,6 +11,9 @@
                  ;[clj-http "0.7.0"] ;client
                  ;[http-kit "2.0.0"] 
                  ;[ring/ring-jetty-adapter "1.1.6"]
+                 [com.ashafa/clutch "0.4.0-RC1"];clutch (or 0.3.1)
+                 [clj-http "0.5.5"];clutch
+                 [com.cemerick/url "0.0.6"];clutch
                  [noir "1.3.0"]
                  [org.clojure/data.json "0.2.1"]  
                    ]);
