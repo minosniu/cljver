@@ -1,4 +1,4 @@
-(ns server-noir.db-test
+(ns server-noir.db-test ;simple task only inside clojure, not with DB
   (:use [clojure.java.jdbc :exclude [resultset-seq]]))
 (def in1 {
     :length {:type "f",
