@@ -11,6 +11,7 @@
 ;value: "{\"user\" : \"foo1\", \"project\" : \"proj2\", \"new_block\" : \"spindle1\"}"
 ;and keep changing the value inside.
 
+;parsing part
 (def all-design (ref #{}))
 (defn parse_input [request]
   (let [input (json/read-json (json/read-json request))
@@ -22,7 +23,6 @@
         (ref-set all-design 
                  (into {} [@all-design
                            (zipmap [user] [{project [{:id (input :new_block)}]}])])))
-              ;(zipmap [(keyword (a :user))] [{(keyword (a :project)) {:id (a :new_block)}}])])))
       (if (nil? ((all-design user) project)) ;true- add id, false- add proj
         (dosync (println "user exist and no proj")
           (ref-set all-design 
@@ -33,13 +33,13 @@
                    (into {} [@all-design 
                              (zipmap [user]
                                      [(zipmap [project] 
-                                              [(conj ((all-design user) project) {:id (input :new_block)})])])])));assemble again     
-        ))))
-
+                                              [(conj ((all-design user) project) {:id (input :new_block)})])])])))))))
+;DB part
 (def DB (ref "nerf-db"))
 (def nerf-db (assoc (cemerick.url/url "http://127.0.0.1:5984/" @DB)
                     :username "admin"
                     :password "admin"))
+;server part
 (defroutes app-routes
   (GET "/" [] "Hello weeeweee")
   (POST "/" [input] (doseq[] 
