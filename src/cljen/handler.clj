@@ -22,18 +22,18 @@
       (dosync (println "new user")
         (ref-set all-design 
                  (into {} [@all-design
-                           (zipmap [user] [{project [{:id (input :new_block)}]}])])))
+                           (zipmap [user] [{project [{:id (str (input :new_block) 1)}]}])])))
       (if (nil? ((all-design user) project)) ;true- add id, false- add proj
-        (dosync (println "user exist and no proj")
+        (dosync (println "user info exists and no project")
           (ref-set all-design 
                    (merge @all-design 
-                          {user (into {} [(all-design user) {project [{:id (input :new_block)}]}])})))
-        (dosync (println "user exist and proj exist")
+                          {user (into {} [(all-design user) {project [{:id (str (input :new_block) 1)}]}])})))
+        (dosync (println "user and proj exist")
           (ref-set all-design 
                    (into {} [@all-design 
                              (zipmap [user]
                                      [(zipmap [project] 
-                                              [(conj ((all-design user) project) {:id (input :new_block)})])])])))))))
+                                              [(conj ((all-design user) project) {:id (str (input :new_block)(+ 1 (alength (into-array((all-design user) project)))))})])])])))))))
 ;DB part, if DB is not connected, comment these four lines.
 (def DB (ref "nerf-db"))
 (def nerf-db (assoc (cemerick.url/url "http://127.0.0.1:5984/" @DB)
