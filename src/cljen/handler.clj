@@ -34,7 +34,7 @@
                              (zipmap [user]
                                      [(zipmap [project] 
                                               [(conj ((all-design user) project) {:id (input :new_block)})])])])))))))
-;DB part
+;DB part, if DB is not connected, comment these four lines.
 (def DB (ref "nerf-db"))
 (def nerf-db (assoc (cemerick.url/url "http://127.0.0.1:5984/" @DB)
                     :username "admin"
