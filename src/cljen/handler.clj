@@ -44,9 +44,7 @@
   (GET "/" [] "Hello weeeweee")
   (POST "/" [input] (doseq[] 
                                      (parse_input input)
-                                     (str @all-design)
-                                     )
-        )
+                                     (str @all-design)))
   (route/resources "/")
   (route/not-found "Not Found"))
 
