@@ -54,16 +54,16 @@
 ;(json/read-str "{\"user\" : \"foo1\", \"project\" : \"proj1\", \"new_block\" : \"spindle1\"}")
 ;{"user" : "foo1", "project" : "proj1", "new_block" : "spindle1"}
 ;DB part, if DB is not connected, comment these four lines.
-(def DB (ref "nerf-db"))
-(def nerf-db (assoc (cemerick.url/url "http://127.0.0.1:5984/" @DB)
-                    :username "admin"
-                    :password "admin"))
+;(def DB (ref "nerf-db"))
+;(def nerf-db (assoc (cemerick.url/url "http://127.0.0.1:5984/" @DB)
+;                    :username "admin"
+;                    :password "admin"))
 (defroutes app-routes
   (GET "/" [] "Welcome!")
   (POST "/" [input] (doseq[] (let [input_str (json/read-json input)]
                                      
                                      (parse_input input)
-                                     (clutch/with-db nerf-db (clutch/put-document nerf-db @all-design))
+                                     ;(clutch/with-db nerf-db (clutch/put-document nerf-db @all-design))
                                      (str @all-design)                             
                                      ;(str (json/read-json (json/read-json input)))
                                      ;(str test_in)
