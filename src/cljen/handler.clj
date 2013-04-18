@@ -19,17 +19,17 @@
 (def USER_ref (ref {:name "" :password "" :type "user"}))
 (def TEMPLATE_ref (ref {:name "" :in "" :out "" :type "template"}))
 (def PROJECT_ref (ref {:user "" :name "" :type "project"})) ;will have block info too
-(def ERROR (ref {:result "success" :code 2 :description ""}));result = error -> code., result=success -> ""
+(def ERROR (ref {:result "success" :code 2 :description "" :project_id ""}));result = error -> code., result=success -> ""
 (defn design [user project action-data]
   (case action-data
     "new" (dosync (ref-set USER_ref (merge @USER_ref {:name user}))
             (ref-set PROJECT_ref (merge @PROJECT_ref {:user user :name project}))
             (if (nil? (clutch/get-document @DB user))
-              (ref-set ERROR (merge @ERROR {:result "error" :code 1 :description "no user exists"}));no user
-              (ref-set ERROR (merge @ERROR {:result "success" :code "" :description ""})));user exist
+              (ref-set ERROR (merge @ERROR {:result "error" :code 1 :description "no user exists" :project_id ""}));no user
+              (ref-set ERROR (merge @ERROR {:result "success" :code "" :description "" :project_id (str user "-" project)})));user exist
             (if (nil? (clutch/get-document @DB (str user "-" project)))
               (when (= (ERROR :code) "") (clutch/put-document @DB (merge @PROJECT_ref {:_id (str user "-" project)})))
-              (when-not (= 1 (ERROR :code)) (ref-set ERROR (merge @ERROR {:result "error" :code 2 :description "the project already exists"})))) ;-> no user error, project exist error, success
+              (when-not (= 1 (ERROR :code)) (ref-set ERROR (merge @ERROR {:result "error" :code 2 :description "the project already exists" :project_id ""})))) ;-> no user error, project exist error, success
             )  
                   ;(clutch/put-document @DB (merge @USER_ref {:_id user})); don't create user! don't use it
     "save"  (clutch/with-db @DB
