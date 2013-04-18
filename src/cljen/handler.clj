@@ -18,17 +18,19 @@
 
 (def USER_ref (ref {:name "" :password "" :type "user"}))
 (def TEMPLATE_ref (ref {:name "" :in "" :out "" :type "template"}))
-(def PROJECT_ref (ref {:name "" :project "" :type "project"})) ;will have block info too
+(def PROJECT_ref (ref {:user "" :name "" :type "project"})) ;will have block info too
+(def ERROR (ref {:result "success" :code 2}));result = error -> code., result=success -> ""
 (defn design [user project action-data]
   (case action-data
     "new" (dosync (ref-set USER_ref (merge @USER_ref {:name user}))
-            (ref-set PROJECT_ref (merge @PROJECT_ref {:name user :project project}))
+            (ref-set PROJECT_ref (merge @PROJECT_ref {:user user :name project}))
             (if (nil? (clutch/get-document @DB user))
-                        (clutch/put-document @DB (merge @USER_ref {:_id user}))
-                        (println "user exists."))
+              (ref-set ERROR (merge @ERROR {:result "error" :code 1}));no user
+              ;(clutch/put-document @DB (merge @USER_ref {:_id user})); don't create user! don't use it
+              (ref-set ERROR (merge @ERROR {:result "success" :code ""})));user exist
             (if (nil? (clutch/get-document @DB (str user "-" project)))
               (clutch/put-document @DB (merge @PROJECT_ref {:_id (str user "-" project)}))
-              (println "project exists."))
+              (ref-set ERROR (merge @ERROR {:result "error" :code 2}))) ;-> no user error, project exist error, success
             )  
     "save"  (clutch/with-db @DB
             (-> (clutch/get-document user)
@@ -45,8 +47,8 @@
   (case action-data
     "new" ;add one, save also inside project_ref
     "delete" ;remove one, also delete inside project_Ref
-    "connect" ;change sth
-    "disconnect" ;change sth
+    "connect" ;change sth, input&output
+    "disconnect" ;change sth, output
     )
   )
 ; input: {"user" : "ZY", "project" : "proj1" , "action" : {"type" : "project", "data" : "new"}}
@@ -68,9 +70,11 @@
                                      ;(clutch/with-db nerf-db (clutch/put-document nerf-db @all-design))
                                      ;(str @all-design)                             
                                      ;(str (json/read-json (json/read-json input)))
-                                     (str @USER_ref @PROJECT_ref)
+                                     (json/write-str @ERROR)
+                                     ;(json/write-json @ERROR); -> error response in JSON
                                      ;(str input)
-                                     )))
+                                     ))) 
+  ;(POST "/error" 
   (route/resources "/")
   (route/not-found "Not Found"))
 
