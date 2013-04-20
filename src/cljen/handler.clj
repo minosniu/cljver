@@ -18,7 +18,7 @@
 
 (def USER_ref (ref {:name "" :password "" :type "user"}))
 (def TEMPLATE_ref (ref {:name "" :in "" :out "" :type "template"}))
-(def PROJECT_ref (ref {:user "" :name "" :type "project" :data []})) ;will have block info too
+(def PROJECT_ref (ref {:user "" :name "" :type "project" :data {}})) ;will have block info too
 (def ERROR (ref {:result "success" :code 2 :description "" :project_id ""}));result = error -> code., result=success -> ""
 (defn design [user project action-data]
   (case action-data
@@ -43,13 +43,23 @@
     )) 
 (defn connect-block [id-list]
 (let [in (first id-list) 
-      out (second id-list)] 
-  (merge 
-  (dosync (first (filter #(= (:name %) (first in)) (PROJECT_ref :data)))))
-))  
+      out (second id-list)
+      in_key (keyword in)
+      out_key (keyword out)] 
+  ;{:data (conj {:spindle1 (merge ((PROJECT_ref :data) :spindle1) {:in 3})} (PROJECT_ref :data))}
+  (dosync (ref-set PROJECT_ref (merge @PROJECT_ref {:data (conj (PROJECT_ref :data) {in_key (merge ((PROJECT_ref :data) in_key) {:out out})} )}))
+    (ref-set PROJECT_ref (merge @PROJECT_ref {:data (conj (PROJECT_ref :data) {out_key (merge ((PROJECT_ref :data) out_key) {:in in})} )})))
+;(dosync  (ref-set PROJECT_ref (merge @PROJECT_ref {:data (conj {in_key (merge ((PROJECT_ref :data) in_key) {:out in})} (PROJECT_ref :data))})))
+  ;(dosync (ref-set PROJECT_ref (merge @PROJECT_ref {:data ""   })))
+  ;(dosync (first (filter #(= (:name %) (first in)) (PROJECT_ref :data))))
+))   
 (defn disconnect-block [id-list]
 (let [in (first id-list)
-      out (second id-list)]
+      out (second id-list)
+      in_key (keyword in) 
+      out_key (keyword out)]
+   (dosync (ref-set PROJECT_ref (merge @PROJECT_ref {:data (conj (PROJECT_ref :data) {in_key (merge ((PROJECT_ref :data) in_key) {:out ""})} )}))
+    (ref-set PROJECT_ref (merge @PROJECT_ref {:data (conj (PROJECT_ref :data) {out_key (merge ((PROJECT_ref :data) out_key) {:in ""})} )})))
   
 )) 
 (defn block [user project action-data]
@@ -58,21 +68,20 @@
         block_count (alength (into-array (PROJECT_ref :data)))
         alloc_count (if (= block_count 0) 
                       (+ 1 block_count)
-                      (+ 1 (Integer. (re-find #"\d+" ((last (PROJECT_ref :data)) :name)))))
+                      (+ 1 (Integer. (re-find #"\d+" (name (first (keys (PROJECT_ref :data))))))))
+                      ;(+ 1 (Integer. (re-find #"\d+" ((last (PROJECT_ref :data)) :name)))))
         block_data (PROJECT_ref :data)]
   (case KEY
     :new (dosync (ref-set TEMPLATE_ref  (clutch/dissoc-meta (clutch/get-document @DB VAL)))
            (ref-set TEMPLATE_ref (merge @TEMPLATE_ref {:name (str (TEMPLATE_ref :name) alloc_count)}))
-           (ref-set PROJECT_ref (merge @PROJECT_ref {:data (conj (PROJECT_ref :data) @TEMPLATE_ref)})))
+           (ref-set PROJECT_ref (merge @PROJECT_ref {:data (conj (PROJECT_ref :data) {(keyword (TEMPLATE_ref :name)) {:in (TEMPLATE_ref :in) :out (TEMPLATE_ref :out)}})})))
     ;find block from library and save in memory
     :delete (dosync (ref-set PROJECT_ref (merge @PROJECT_ref {:data  
-              (into [] (filter #(not= (:name %) VAL) (PROJECT_ref :data)))})))
+              ;(into {} (filter #(not= (:name %) VAL) (PROJECT_ref :data)))})))
+               (apply dissoc (PROJECT_ref :data) [(keyword VAL)])})))                                              
     ;remove one block from memory
-    :connect ( ;input 
-               ;output change
-               ;ref-set
-               )
-    :disconnect ;change sth, output
+    :connect (connect-block VAL)
+    :disconnect (disconnect-block VAL);change sth, output
     )))
 ; input: {"user" : "ZY", "project" : "proj1" , "action" : {"type" : "project", "data" : "new"}}
 (defn parse_input [request]
