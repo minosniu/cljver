@@ -23,7 +23,7 @@
 (def OUTPUT (ref ""))
 
 (defn design [user project action]
-  ;{"user" : "ZY", "project" : "proj21" , "action" : "new", "type" : "project"}
+  ;{"user" : "ZY", "project" : "proj21" , "extra":{"action" : "new", "type" : "project"}}
   (case action
     "new" (dosync (ref-set USER_ref (merge @USER_ref {:name user}))
             (ref-set PROJECT_ref (merge @PROJECT_ref {:user user :name project}))
@@ -46,7 +46,7 @@
              (ref-set OUTPUT {:result "success" :code "" :description ""})))) 
 
 (defn new-block [data alloc_count]
-  ;{"user" : "ZY", "project" : "proj21" , "action" : "new", "type" : "block", "data": {"template": "spindle", "position": {"left": 20, "top": 30}}}
+  ;{"user" : "ZY", "project" : "proj21" , "extra":{"action" : "new", "type" : "block", "data": {"template": "spindle", "position": {"left": 20, "top": 30}}}}
   (if (clutch/document-exists? @DB (data :template))
     (dosync 
       (ref-set TEMPLATE_ref  (clutch/dissoc-meta (clutch/get-document @DB (data :template))))
@@ -55,14 +55,14 @@
       (ref-set OUTPUT {:result "success" :block_id (TEMPLATE_ref :name)}))
     (dosync (ref-set OUTPUT {:result "error" :code 3 :description "the template does not exist"}))))
 (defn delete-block [data]
-  ;{"user" : "ZY", "project" : "proj21" , "action" : "delete", "type" : "block", "data": {"block": "spindle4"}}
+  ;{"user" : "ZY", "project" : "proj21" , "extra":{"action" : "delete", "type" : "block", "data": {"block": "spindle4"}}}
   (if (nil? ((PROJECT_ref :data)(keyword (data :block)))) 
     (dosync(ref-set OUTPUT {:result "error" :code 4 :description "the block does not exist" }))
     (dosync (ref-set OUTPUT {:result "success"})
       (ref-set PROJECT_ref (merge @PROJECT_ref 
                                   {:data (apply dissoc (PROJECT_ref :data) [(keyword (data :block))])})))))
 (defn move-block [data]
-  ;{"user" : "ZY", "project" : "proj21" , "action" : "move", "type" : "block", "data":  {"block": "spindle1", "position": {"left": 33, "top": 21}}}
+  ;{"user" : "ZY", "project" : "proj21" , "extra":{"action" : "move", "type" : "block", "data":  {"block": "spindle1", "position": {"left": 33, "top": 21}}}}
   (let [block_id (keyword (data :block))]
     (dosync (if (nil? ((PROJECT_ref :data) block_id)) 
               (ref-set OUTPUT {:result "error" :code 4 :description "the block does not exist" })
@@ -70,7 +70,7 @@
       (ref-set PROJECT_ref (merge @PROJECT_ref 
                                   {:data (conj (PROJECT_ref :data) {block_id (merge ((PROJECT_ref :data) block_id) {:position (data :position)})})})))))
 (defn connect-block [data]
- ;{"user" : "ZY", "project" : "proj21" , "action" : "connect", "type" : "block", "data":  {"output":{"id": "spindle1", "pin": "out"}, "input":{"id": "spindle2", "pin": "in"}}}
+ ;{"user" : "ZY", "project" : "proj21" , "extra":{"action" : "connect", "type" : "block", "data":  {"output":{"id": "spindle1", "pin": "out"}, "input":{"id": "spindle2", "pin": "in"}}}}
   (let [out (data :output)
         in (data :input)
         out_key (keyword (out :id))
@@ -81,7 +81,7 @@
       (ref-set PROJECT_ref (merge @PROJECT_ref {:data (conj (PROJECT_ref :data) {out_key (merge ((PROJECT_ref :data) out_key) {out_pin (in :id)})} )}))
       (ref-set OUTPUT {:result "success"}))))   
 (defn disconnect-block [data]
-  ;{"user" : "ZY", "project" : "proj21" , "action" : "disconnect", "type" : "block", "data":  {"output":{"id": "spindle1", "pin": "out"}, "input":{"id": "spindle2", "pin": "in"}}}
+  ;{"user" : "ZY", "project" : "proj21" , "extra":{"action" : "disconnect", "type" : "block", "data":  {"output":{"id": "spindle1", "pin": "out"}, "input":{"id": "spindle2", "pin": "in"}}}}
   (let [out (data :output)
         in (data :input)
         out_key (keyword (out :id))
@@ -109,9 +109,9 @@
   (let [input (json/read-json request)
         user (input :user)
         project (input :project)
-        action (input :action)
-        type (input :type)
-        data (input :data)
+        action ((input :extra):action)
+        type ((input :extra):type)
+        data ((input :extra):data)
         ]
     (case type
       "block"  (block user project action data)
