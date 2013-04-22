@@ -52,7 +52,7 @@
       (ref-set TEMPLATE_ref  (clutch/dissoc-meta (clutch/get-document @DB (data :template))))
       (ref-set TEMPLATE_ref (merge @TEMPLATE_ref {:name (str (TEMPLATE_ref :name) alloc_count)}))
       (ref-set PROJECT_ref (merge @PROJECT_ref {:data (conj (PROJECT_ref :data) {(keyword (TEMPLATE_ref :name)) {:in (TEMPLATE_ref :in) :out (TEMPLATE_ref :out) :position (data :position)}})}))
-      (ref-set OUTPUT {:result "success" :block_id (TEMPLATE_ref :name)}))
+      (ref-set OUTPUT {:result "success" :block (TEMPLATE_ref :name)}))
     (dosync (ref-set OUTPUT {:result "error" :code 3 :description "the template does not exist"}))))
 (defn delete-block [data]
   ;{"user" : "ZY", "project" : "proj21" , "extra":{"action" : "delete", "type" : "block", "data": {"block": "spindle4"}}}
