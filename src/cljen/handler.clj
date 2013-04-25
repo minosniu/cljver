@@ -21,7 +21,8 @@
 (def PROJECT_ref (ref {:user "" :name "" :type "project" :data {}})) ;will have block info too
 (def ERROR (ref {:result "success" :code 2 :description "" :project_id ""}));result = error -> code., result=success -> ""
 (def OUTPUT (ref ""))
-
+(def error-code (ref 0)) ; for diverse error with connection&disconnection
+;log implementation
 (defn design [user project action]
   ;{"user" : "ZY", "project" : "proj21" , "extra":{"action" : "new", "type" : "project"}}
   (case action
@@ -30,6 +31,7 @@
             (if (nil? (clutch/get-document @DB user))
               (ref-set ERROR (merge @ERROR {:result "error" :code 1 :description "no user exists" :project_id ""}));no user
               (ref-set ERROR (merge @ERROR {:result "success" :code "" :description "" :project_id (str user "-" project)})));user exist
+            ;blank project ref too
             (if (nil? (clutch/get-document @DB (str user "-" project)))
               (when (= (ERROR :code) "") (clutch/put-document @DB (merge @PROJECT_ref {:_id (str user "-" project)})))
               (when-not (= 1 (ERROR :code)) (ref-set ERROR (merge @ERROR {:result "error" :code 2 :description "the project already exists" :project_id ""})))) ;-> no user error, project exist error, success
@@ -69,17 +71,30 @@
               (ref-set OUTPUT {:result "success"}))
       (ref-set PROJECT_ref (merge @PROJECT_ref 
                                   {:data (conj (PROJECT_ref :data) {block_id (merge ((PROJECT_ref :data) block_id) {:position (data :position)})})})))))
-(defn connect-block [data]
+
+(defn connect-block [data] 
  ;{"user" : "ZY", "project" : "proj21" , "extra":{"action" : "connect", "type" : "block", "data":  {"output":{"id": "spindle1", "pin": "out"}, "input":{"id": "spindle2", "pin": "in"}}}}
   (let [out (data :output)
         in (data :input)
         out_key (keyword (out :id))
         in_key (keyword (in :id))
         out_pin (keyword (out :pin))
-        in_pin (keyword (in :pin))] 
-    (dosync (ref-set PROJECT_ref (merge @PROJECT_ref {:data (conj (PROJECT_ref :data) {in_key (merge ((PROJECT_ref :data) in_key) {in_pin (out :id)} )} )}))
-      (ref-set PROJECT_ref (merge @PROJECT_ref {:data (conj (PROJECT_ref :data) {out_key (merge ((PROJECT_ref :data) out_key) {out_pin (in :id)})} )}))
-      (ref-set OUTPUT {:result "success"}))))   
+        in_pin (keyword (in :pin))]
+    (dosync 
+      (if (nil? ((PROJECT_ref :data) out_key)) (ref-set error-code (+ @error-code 1000)); output block exist?
+        (if (nil? (((PROJECT_ref :data) out_key) out_pin)) (ref-set error-code (+ @error-code 10)))) ;output pin exist?
+      (if (nil? ((PROJECT_ref :data) in_key)) (ref-set error-code (+ @error-code 100)); input block exist?
+        (if (nil? (((PROJECT_ref :data) in_key) in_pin)) (ref-set error-code (+ @error-code 1)))) ;input pin exist?
+      
+      (cond 
+        (>= @error-code 1000) (ref-set OUTPUT {:result "error" :code 5 :description "the output block does not exist" })
+        (>= @error-code 100) (ref-set OUTPUT {:result "error" :code 7 :description "the input block does not exist" })
+        (>= @error-code 10) (ref-set OUTPUT {:result "error" :code 6 :description "the output pin does not exist" })
+        (>= @error-code 1) (ref-set OUTPUT {:result "error" :code 8 :description "the input pin does not exist" })
+        (= @error-code 0) (doseq[] (ref-set OUTPUT {:result "success"})    
+                            (ref-set PROJECT_ref (merge @PROJECT_ref {:data (conj (PROJECT_ref :data) {in_key (merge ((PROJECT_ref :data) in_key) {in_pin (out :id)} )} )}))
+                            (ref-set PROJECT_ref (merge @PROJECT_ref {:data (conj (PROJECT_ref :data) {out_key (merge ((PROJECT_ref :data) out_key) {out_pin (in :id)})} )}))))
+      (ref-set error-code 0))))   
 (defn disconnect-block [data]
   ;{"user" : "ZY", "project" : "proj21" , "extra":{"action" : "disconnect", "type" : "block", "data":  {"output":{"id": "spindle1", "pin": "out"}, "input":{"id": "spindle2", "pin": "in"}}}}
   (let [out (data :output)
@@ -88,9 +103,20 @@
         in_key (keyword (in :id))
         out_pin (keyword (out :pin))
         in_pin (keyword (in :pin))] 
-    (dosync (ref-set PROJECT_ref (merge @PROJECT_ref {:data (conj (PROJECT_ref :data) {in_key (merge ((PROJECT_ref :data) in_key) {in_pin ""} )} )}))
-      (ref-set PROJECT_ref (merge @PROJECT_ref {:data (conj (PROJECT_ref :data) {out_key (merge ((PROJECT_ref :data) out_key) {out_pin ""})} )}))
-      (ref-set OUTPUT {:result "success"}))))   
+    (dosync 
+      (if (nil? ((PROJECT_ref :data) out_key)) (ref-set error-code (+ @error-code 1000)); output block exist?
+        (if (nil? (((PROJECT_ref :data) out_key) out_pin)) (ref-set error-code (+ @error-code 10)))) ;output pin exist?
+      (if (nil? ((PROJECT_ref :data) in_key)) (ref-set error-code (+ @error-code 100)); input block exist?
+        (if (nil? (((PROJECT_ref :data) in_key) in_pin)) (ref-set error-code (+ @error-code 1)))) ;input pin exist?
+ (cond 
+        (>= @error-code 1000) (ref-set OUTPUT {:result "error" :code 5 :description "the output block does not exist" })
+        (>= @error-code 100) (ref-set OUTPUT {:result "error" :code 7 :description "the input block does not exist" })
+        (>= @error-code 10) (ref-set OUTPUT {:result "error" :code 6 :description "the output pin does not exist" })
+        (>= @error-code 1) (ref-set OUTPUT {:result "error" :code 8 :description "the input pin does not exist" })
+        (= @error-code 0) (doseq[] (ref-set OUTPUT {:result "success"})    
+                            (ref-set PROJECT_ref (merge @PROJECT_ref {:data (conj (PROJECT_ref :data) {in_key (merge ((PROJECT_ref :data) in_key) {in_pin ""} )} )}))
+                            (ref-set PROJECT_ref (merge @PROJECT_ref {:data (conj (PROJECT_ref :data) {out_key (merge ((PROJECT_ref :data) out_key) {out_pin ""})} )}))))
+      (ref-set error-code 0))))  
 
 (defn block [user project action data]
   (let [block_count (alength (into-array (PROJECT_ref :data)))
@@ -125,7 +151,9 @@
                                (parse_input input)
                                ;(str @PROJECT_ref "\n" @OUTPUT)
                                (json/write-str @OUTPUT)
+
                                ))) 
+  (GET "/sirish" [] (json/write-str @PROJECT_ref))
   (route/resources "/")
   (route/not-found "Not Found"))
 
