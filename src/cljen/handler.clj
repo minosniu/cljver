@@ -19,33 +19,44 @@
 (def USER_ref (ref {:name "" :password "" :type "user"}))
 (def TEMPLATE_ref (ref {:name "" :in "" :out "" :type "template"}))
 (def PROJECT_ref (ref {:user "" :name "" :type "project" :data {}})) ;will have block info too
-(def ERROR (ref {:result "success" :code 2 :description "" :project_id ""}));result = error -> code., result=success -> ""
+(def ERROR (ref {:result "success" :content "" :project_id ""}));result = error -> code., result=success -> ""
 (def OUTPUT (ref ""))
 (def error-code (ref 0)) ; for diverse error with connection&disconnection
 ;log implementation
+(defn new-design [user project]
+;{"user" : "ZY", "project" : "proj21" , "extra":{"action" : "new", "type" : "project"}}
+  (dosync  
+    (if (nil? (clutch/get-document @DB user))
+      (ref-set ERROR (merge @ERROR {:result "error" :content "no user exists" :project_id ""}));no user
+      ;(clutch/put-document @DB (merge @USER_ref {:_id user})); don't create user! don't use it
+      (doseq[](ref-set ERROR (merge @ERROR {:result "success" :content "" :project_id (str user "-" project)}))
+        (ref-set USER_ref (merge @USER_ref {:name user}))
+        (ref-set PROJECT_ref (merge @PROJECT_ref {:user user :name project}))));user exist
+    ;blank project ref too 
+    (if (nil? (clutch/get-document @DB (str user "-" project)))
+      (when (= (ERROR :content) "") (clutch/put-document @DB (merge @PROJECT_ref {:_id (str user "-" project)})))
+      (when-not (= 1 (ERROR :code)) (ref-set ERROR (merge @ERROR {:result "error" :content "the project already exists" :project_id ""})))) ;-> no user error, project exist error, success
+    (ref-set OUTPUT (conj @ERROR {:project_id (str user "-" project)}))))
+
+(defn save-design [user project]
+  ;{"user" : "ZY", "project" : "proj21" , "extra":{"action" : "save", "type" : "project"}}
+  (dosync (clutch/with-db @DB
+            (-> (clutch/get-document user)
+              (clutch/update-document @USER_ref))
+            (-> (clutch/get-document (str user "-" project))
+              (clutch/update-document @PROJECT_ref))
+            (ref-set OUTPUT {:result "success" :content ""}))))
+(defn load-design [user project]
+  ;{"user" : "ZY", "project" : "proj21" , "extra":{"action" : "load", "type" : "project"}}
+  (dosync (ref-set USER_ref  (clutch/dissoc-meta (clutch/get-document @DB user)))
+    (ref-set PROJECT_ref (clutch/dissoc-meta (clutch/get-document @DB (str user "-" project))))
+    (ref-set OUTPUT {:result "success" :content ""}))) 
+
 (defn design [user project action]
-  ;{"user" : "ZY", "project" : "proj21" , "extra":{"action" : "new", "type" : "project"}}
   (case action
-    "new" (dosync (ref-set USER_ref (merge @USER_ref {:name user}))
-            (ref-set PROJECT_ref (merge @PROJECT_ref {:user user :name project}))
-            (if (nil? (clutch/get-document @DB user))
-              (ref-set ERROR (merge @ERROR {:result "error" :code 1 :description "no user exists" :project_id ""}));no user
-              (ref-set ERROR (merge @ERROR {:result "success" :code "" :description "" :project_id (str user "-" project)})));user exist
-            ;blank project ref too
-            (if (nil? (clutch/get-document @DB (str user "-" project)))
-              (when (= (ERROR :code) "") (clutch/put-document @DB (merge @PROJECT_ref {:_id (str user "-" project)})))
-              (when-not (= 1 (ERROR :code)) (ref-set ERROR (merge @ERROR {:result "error" :code 2 :description "the project already exists" :project_id ""})))) ;-> no user error, project exist error, success
-            (ref-set OUTPUT (conj @ERROR {:project_id (str user "-" project)})))  
-                  ;(clutch/put-document @DB (merge @USER_ref {:_id user})); don't create user! don't use it
-    "save"  (dosync (clutch/with-db @DB
-                      (-> (clutch/get-document user)
-                        (clutch/update-document @USER_ref))
-                      (-> (clutch/get-document (str user "-" project))
-                        (clutch/update-document @PROJECT_ref))
-                      (ref-set OUTPUT {:result "success" :code "" :description ""})))
-    "load" (dosync (ref-set USER_ref  (clutch/dissoc-meta (clutch/get-document @DB user)))
-             (ref-set PROJECT_ref (clutch/dissoc-meta (clutch/get-document @DB (str user "-" project))))
-             (ref-set OUTPUT {:result "success" :code "" :description ""})))) 
+    "new" (new-design user project)
+    "save"  (save-design user project)
+    "load" (load-design user project)))
 
 (defn new-block [data alloc_count]
   ;{"user" : "ZY", "project" : "proj21" , "extra":{"action" : "new", "type" : "block", "data": {"template": "spindle", "position": {"left": 20, "top": 30}}}}
@@ -55,11 +66,11 @@
       (ref-set TEMPLATE_ref (merge @TEMPLATE_ref {:name (str (TEMPLATE_ref :name) alloc_count)}))
       (ref-set PROJECT_ref (merge @PROJECT_ref {:data (conj (PROJECT_ref :data) {(keyword (TEMPLATE_ref :name)) {:in (TEMPLATE_ref :in) :out (TEMPLATE_ref :out) :position (data :position)}})}))
       (ref-set OUTPUT {:result "success" :block (TEMPLATE_ref :name)}))
-    (dosync (ref-set OUTPUT {:result "error" :code 3 :description "the template does not exist"}))))
+    (dosync (ref-set OUTPUT {:result "error" :content "the template does not exist"}))))
 (defn delete-block [data]
   ;{"user" : "ZY", "project" : "proj21" , "extra":{"action" : "delete", "type" : "block", "data": {"block": "spindle4"}}}
   (if (nil? ((PROJECT_ref :data)(keyword (data :block)))) 
-    (dosync(ref-set OUTPUT {:result "error" :code 4 :description "the block does not exist" }))
+    (dosync(ref-set OUTPUT {:result "error" :content "the block does not exist" }))
     (dosync (ref-set OUTPUT {:result "success"})
       (ref-set PROJECT_ref (merge @PROJECT_ref 
                                   {:data (apply dissoc (PROJECT_ref :data) [(keyword (data :block))])})))))
@@ -67,19 +78,19 @@
   ;{"user" : "ZY", "project" : "proj21" , "extra":{"action" : "move", "type" : "block", "data":  {"block": "spindle1", "position": {"left": 33, "top": 21}}}}
   (let [block_id (keyword (data :block))]
     (dosync (if (nil? ((PROJECT_ref :data) block_id)) 
-              (ref-set OUTPUT {:result "error" :code 4 :description "the block does not exist" })
+              (ref-set OUTPUT {:result "error" :content "the block does not exist" })
               (ref-set OUTPUT {:result "success"}))
       (ref-set PROJECT_ref (merge @PROJECT_ref 
                                   {:data (conj (PROJECT_ref :data) {block_id (merge ((PROJECT_ref :data) block_id) {:position (data :position)})})})))))
 
 (defn connect-block [data] 
- ;{"user" : "ZY", "project" : "proj21" , "extra":{"action" : "connect", "type" : "block", "data":  {"output":{"id": "spindle1", "pin": "out"}, "input":{"id": "spindle2", "pin": "in"}}}}
-  (let [out (data :output)
-        in (data :input)
-        out_key (keyword (out :id))
-        in_key (keyword (in :id))
-        out_pin (keyword (out :pin))
-        in_pin (keyword (in :pin))]
+  ;{"user" : "ZY", "project" : "proj21" , "extra":{"action" : "connect", "type" : "block", "data":  {"src":{"block": "spindle1", "port": "out"}, "dest":{"block": "spindle2", "port": "in"}}}}
+ (let [out (data :src); {"block": "spindle1", "port": "out"}
+        in (data :dest);need to fix
+        out_key (keyword (out :block))
+        in_key (keyword (in :block))
+        out_pin (keyword (out :port))
+        in_pin (keyword (in :port))]
     (dosync 
       (if (nil? ((PROJECT_ref :data) out_key)) (ref-set error-code (+ @error-code 1000)); output block exist?
         (if (nil? (((PROJECT_ref :data) out_key) out_pin)) (ref-set error-code (+ @error-code 10)))) ;output pin exist?
@@ -87,32 +98,32 @@
         (if (nil? (((PROJECT_ref :data) in_key) in_pin)) (ref-set error-code (+ @error-code 1)))) ;input pin exist?
       
       (cond 
-        (>= @error-code 1000) (ref-set OUTPUT {:result "error" :code 5 :description "the output block does not exist" })
-        (>= @error-code 100) (ref-set OUTPUT {:result "error" :code 7 :description "the input block does not exist" })
-        (>= @error-code 10) (ref-set OUTPUT {:result "error" :code 6 :description "the output pin does not exist" })
-        (>= @error-code 1) (ref-set OUTPUT {:result "error" :code 8 :description "the input pin does not exist" })
+        (>= @error-code 1000) (ref-set OUTPUT {:result "error" :content "the output block does not exist" })
+        (>= @error-code 100) (ref-set OUTPUT {:result "error" :content "the input block does not exist" })
+        (>= @error-code 10) (ref-set OUTPUT {:result "error" :content "the output pin does not exist" })
+        (>= @error-code 1) (ref-set OUTPUT {:result "error" :content "the input pin does not exist" })
         (= @error-code 0) (doseq[] (ref-set OUTPUT {:result "success"})    
-                            (ref-set PROJECT_ref (merge @PROJECT_ref {:data (conj (PROJECT_ref :data) {in_key (merge ((PROJECT_ref :data) in_key) {in_pin (out :id)} )} )}))
-                            (ref-set PROJECT_ref (merge @PROJECT_ref {:data (conj (PROJECT_ref :data) {out_key (merge ((PROJECT_ref :data) out_key) {out_pin (in :id)})} )}))))
+                            (ref-set PROJECT_ref (merge @PROJECT_ref {:data (conj (PROJECT_ref :data) {in_key (merge ((PROJECT_ref :data) in_key) {in_pin (out :block)} )} )}))
+                            (ref-set PROJECT_ref (merge @PROJECT_ref {:data (conj (PROJECT_ref :data) {out_key (merge ((PROJECT_ref :data) out_key) {out_pin (in :block)})} )}))))
       (ref-set error-code 0))))   
 (defn disconnect-block [data]
-  ;{"user" : "ZY", "project" : "proj21" , "extra":{"action" : "disconnect", "type" : "block", "data":  {"output":{"id": "spindle1", "pin": "out"}, "input":{"id": "spindle2", "pin": "in"}}}}
-  (let [out (data :output)
-        in (data :input)
-        out_key (keyword (out :id))
-        in_key (keyword (in :id))
-        out_pin (keyword (out :pin))
-        in_pin (keyword (in :pin))] 
+  ;{"user" : "ZY", "project" : "proj21" , "extra":{"action" : "connect", "type" : "block", "data":  {"src":{"block": "spindle1", "port": "out"}, "dest":{"block": "spindle2", "port": "in"}}}}
+  (let [out (data :src); {"block": "spindle1", "port": "out"}
+        in (data :dest);need to fix
+        out_key (keyword (out :block))
+        in_key (keyword (in :block))
+        out_pin (keyword (out :port))
+        in_pin (keyword (in :port))] 
     (dosync 
       (if (nil? ((PROJECT_ref :data) out_key)) (ref-set error-code (+ @error-code 1000)); output block exist?
         (if (nil? (((PROJECT_ref :data) out_key) out_pin)) (ref-set error-code (+ @error-code 10)))) ;output pin exist?
       (if (nil? ((PROJECT_ref :data) in_key)) (ref-set error-code (+ @error-code 100)); input block exist?
         (if (nil? (((PROJECT_ref :data) in_key) in_pin)) (ref-set error-code (+ @error-code 1)))) ;input pin exist?
  (cond 
-        (>= @error-code 1000) (ref-set OUTPUT {:result "error" :code 5 :description "the output block does not exist" })
-        (>= @error-code 100) (ref-set OUTPUT {:result "error" :code 7 :description "the input block does not exist" })
-        (>= @error-code 10) (ref-set OUTPUT {:result "error" :code 6 :description "the output pin does not exist" })
-        (>= @error-code 1) (ref-set OUTPUT {:result "error" :code 8 :description "the input pin does not exist" })
+        (>= @error-code 1000) (ref-set OUTPUT {:result "error" :content "the output block does not exist" })
+        (>= @error-code 100) (ref-set OUTPUT {:result "error" :content "the input block does not exist" })
+        (>= @error-code 10) (ref-set OUTPUT {:result "error" :content "the output pin does not exist" })
+        (>= @error-code 1) (ref-set OUTPUT {:result "error" :content "the input pin does not exist" })
         (= @error-code 0) (doseq[] (ref-set OUTPUT {:result "success"})    
                             (ref-set PROJECT_ref (merge @PROJECT_ref {:data (conj (PROJECT_ref :data) {in_key (merge ((PROJECT_ref :data) in_key) {in_pin ""} )} )}))
                             (ref-set PROJECT_ref (merge @PROJECT_ref {:data (conj (PROJECT_ref :data) {out_key (merge ((PROJECT_ref :data) out_key) {out_pin ""})} )}))))
