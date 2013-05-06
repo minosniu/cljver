@@ -65,7 +65,7 @@
       (reset! temp_in (conj @temp_in {in-port @(-> @design-content UUID :in in-port)})))
     (doseq [out-port (keys (info :out))]
       (reset! temp_out (conj @temp_out {out-port (-> @design-content UUID :out out-port)})))
-    {:_id (name UUID) :in @temp_in :out @temp_out :position (info :position) :template temp-name}))
+    {:uuid (name UUID) :in @temp_in :out @temp_out :position (info :position) :template temp-name :type "design-content"}))
 
 
 (def ERROR (ref {:result "success" :content "" :project_id ""}));result = error -> code., result=success -> ""
@@ -92,20 +92,24 @@
   (let [USER (keyword user)
         PROJ (keyword project)]
   (dosync (clutch/with-db @DB
-            (-> (clutch/get-document (str user "-" project))
-              (clutch/update-document {:block_uuid @(-> @design-hash USER PROJ)})) ;save design-hash
-            (doseq [uuid @(-> @design-hash USER PROJ)]
+            ;(-> (clutch/get-document (str user "-" project)) ;unique id
+            ;  (clutch/update-document {:block_uuid @(-> @design-hash USER PROJ)})
+            (clutch/put-document {:block_uuid @(-> @design-hash USER PROJ) :user user :project project :type "design-hash"})
+             ;save design-hash
+            
+            (doseq [uuid @(-> @design-hash USER PROJ)] ; should add specific function for partial saving
               (let [UUID (keyword uuid)]
                 (println (str "\n\n" (conj {:_id uuid } (-> @design-content UUID)) "\n\n"))
-              (if (nil? (clutch/get-document uuid))
+              ;(if (nil? (clutch/get-document uuid))
                 (clutch/put-document (uuid-save-db UUID));save new block in design-content
-                (-> (clutch/get-document uuid)
-                  (clutch/update-document (uuid-save-db UUID)))));save changed block in design-content
+               ; (-> (clutch/get-document uuid)
+               ;   (clutch/update-document (uuid-save-db UUID))))
+              );save changed block in design-content
             (ref-set OUTPUT {:result "success" :content ""}))))))
 
 (defn load-design [user project]
-  ;{"user" : "ZY", "project" : "proj21" , "extra":{"action" : "load", "type" : "project"}}
-  (dosync (ref-set USER_ref  (clutch/dissoc-meta (clutch/get-document @DB user)))
+  ;{"user" : "ZY", "project" : "proj21" , "action" : "load"}
+  (dosync (ref-set USER_ref  (clutch/dissoc-meta (clutch/get-document @DB (str user "-" project))))
     (ref-set PROJECT_ref (clutch/dissoc-meta (clutch/get-document @DB (str user "-" project))))
     (ref-set OUTPUT {:result "success" :content ""}))) 
 
@@ -202,16 +206,17 @@
         (ref-set design-content (dissoc @design-content (keyword uuid)))))
     (reset! (-> @design-hash USER PROJ) [])))
   
-(defn design-handler [request]
-  (let [input (json/read-json request)
-        user (input :user)
-        project (input :project)
-        action ((input :extra):action)
-        type ((input :extra):type)
-        data ((input :extra):data)     
-        block_count (alength (into-array (PROJECT_ref :data)))
-        block_data (PROJECT_ref :data)]
+(defn design-handler [user project action data]
+  (let [;input (json/read-json request)
+        ;user (input :user)
+        ;project (input :project)
+        ;action (input :action)
+        ;data (input :data)     
+        ;block_count (alength (into-array (PROJECT_ref :data)))
+        ;block_data (PROJECT_ref :data)
+        ]
     (case action
+      "save" (save-design user project)
       "new" (new-block user project data) ;find block from library and save in project in memory
       "delete"(delete-block data) ;remove one block from project in memory
       "clear" (clear-block user project);
@@ -226,7 +231,7 @@
         action (input :action)]
   (case action
     "new" (new-design user project)
-    "save"  (save-design user project)
+    "save"  (save-design user project) ;should be removed later
     "load" (load-design user project))))
 
 (defroutes app-routes
@@ -239,12 +244,21 @@
                                (json/write-str @OUTPUT)
 
                                ))) 
-  (POST "/design" [input] (doseq[] (let [input_str (json/read-json input)]  
-                                     (design-handler input)
-                                     (str @design-content "\n\n" @design-hash))) )
+  
+  ;(let [raw-post-input (json/read-json input true)
+  ;                                       user (rainput :user)
+  ;                                       project (input :project)
+  ;                                       action (input :action)
+  ;                                       data (input :data)
+  ;                                       ]  
+  (POST "/design" [user project action data] 
+        (let [keywordized-data (json/read-json data true)]
+          (doseq[] 
+            (design-handler user project action keywordized-data)
+            (str @design-content)))) 
   (POST "/project" [input] (doseq[] (let [input_str (json/read-json input)] 
                                       (project-handler input)
-                                      (str @design-content "\n\n" @design-hash)
+                                      (str @design-hash)
                                       )))
   (GET "/sirish" [] (json/write-str @PROJECT_ref))
   (route/resources "/")
