@@ -4,7 +4,7 @@
   :license {:name "Eclipse Public License"
             :url "http://www.eclipse.org/legal/epl-v10.html"}
   :plugins [[lein-ring "0.8.2"]]
-  :ring {:handler cljen.handler/app}         
+  :ring {:handler handler.handler/app}         
   :dependencies [[org.clojure/clojure "1.4.0"]
                  [ring/ring-core "1.1.6"]
                  [org.clojure/java.jdbc "0.3.0-alpha1"]
