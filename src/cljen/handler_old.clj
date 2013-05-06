@@ -1,4 +1,4 @@
-(ns cljen.handler
+(ns cljen.handler_old
   (:use compojure.core
         [cemerick.url :only (url)])
   (:require [compojure.handler :as handler]
