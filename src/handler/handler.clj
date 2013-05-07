@@ -1,13 +1,12 @@
 (ns handler.handler
   (:use cljen.core) ;(create-spindle-from-post a-spindle)
+  (:use [com.ashafa.clutch :exclude [assoc! conj! dissoc!]])
   (:use compojure.core
         [cemerick.url :only (url)])
   (:require [compojure.handler :as handler]
             [compojure.route :as route]
-            [com.ashafa.clutch :as clutch]
+            ;[com.ashafa.clutch :as clutch]
             [clojure.data.json :as json]))
-
-
 
 ; user : (:username :password :type)
 ; template : (:libname :in :out :type)
@@ -55,9 +54,10 @@
      ;another template
      }) 
 
-(defn uuid-save-db [UUID]
+(defn uuid-save-db [uuid]
   "Convert atom to value to save in CouchDB as JSON"
-  (let [temp-name (-> @design-content UUID :template)
+  (let [UUID (keyword uuid)
+        temp-name (-> @design-content UUID :template)
         info (block-template (keyword temp-name))
         temp_in (atom {})
         temp_out (atom {})]
@@ -72,17 +72,48 @@
 (def OUTPUT (ref ""))
 (def error-code (ref 0)) ; for diverse error with connection&disconnection
 ;log implementation
+
+(with-db user-db
+"save-view: design-view and project-view"
+  (save-view 
+    "design-view"
+    (view-server-fns 
+      :cljs
+      {:design-hash {:map (fn [doc] (when (and (aget doc "user") (aget doc "project") (aget doc "block_uuid"))
+                                      (js/emit (str (aget doc "user") "-" (aget doc "project")) (aget doc "block_uuid")) 
+                                      ))}
+       :design-content {:map (fn [doc] (when (and (aget doc "in") (aget doc "out") (aget doc "uuid"))
+                                         (js/emit (aget doc "uuid") (aget doc "template"))))}  }))
+         ;template, user should be added
+  (comment 
+    (save-view 
+      "user-view"
+      (view-server-fns 
+        :cljs
+        {:user-view {:map (fn [doc] (when (and (aget doc "user") (aget doc "project") (aget doc "block_uuid"))
+                                      (js/emit (str (aget doc "user") "-" (aget doc "project")) (aget doc "block_uuid")) 
+                                      ))} }))
+    )
+         )
+
+(defn get-view-key [user project type & uuid]
+  "get a key of each view"
+(let [key_uuid (first uuid)]
+  (case type
+    "design-hash" (first (get-view "design-view" "design-hash" {:key (str user "-" project)}))
+    "design-content" (first (get-view "design-view" "design-content" {:key key_uuid})))))
+
 (defn new-design [user project]
 ;{"user" : "ZY", "project" : "proj21" , "action" : "new"}
   (dosync  
-    (if (nil? (clutch/get-document @DB user));user check
+    (if (nil? (get-document @DB user));user check
       (ref-set ERROR (merge @ERROR {:result "error" :content "no user exists" :project_id ""}));no user
       (doseq[](ref-set ERROR (merge @ERROR {:result "success" :content "" :project_id (str user "-" project)}))
         (ref-set USER_ref (merge @USER_ref {:name user}))
         (ref-set PROJECT_ref (merge @PROJECT_ref {:user user :name project}))));user exist
     ;project check
-    (if (nil? (clutch/get-document @DB (str user "-" project)))
-      (when (= (ERROR :content) "") (clutch/put-document @DB (conj {:user user :proj project :block_uuid []} {:_id (str user "-" project)})))
+    (if (nil? (get-document @DB (str user "-" project)))
+      (when (= (ERROR :content) "") (put-document @DB (conj {:user user :proj project :block_uuid []} {:_id (str user "-" project)})))
       (when-not (= 1 (ERROR :code)) (ref-set ERROR (merge @ERROR {:result "error" :content "the project already exists" :project_id ""})))) ;-> no user error, project exist error, success
     (ref-set OUTPUT (conj @ERROR {:project_id (str user "-" project)}))))
 
@@ -91,38 +122,37 @@
 ;{"user" : "minos", "project" : "foo1" , "action" : "save"}
   (let [USER (keyword user)
         PROJ (keyword project)]
-  (dosync (clutch/with-db @DB
-            ;(-> (clutch/get-document (str user "-" project)) ;unique id
-            ;  (clutch/update-document {:block_uuid @(-> @design-hash USER PROJ)})
-            (clutch/put-document {:block_uuid @(-> @design-hash USER PROJ) :user user :project project :type "design-hash"})
-             ;save design-hash
-            
+  (dosync (with-db user-db
+            "save design-hash"
+            (if (nil?  (get-view-key user project "design-hash"))
+            (put-document {:block_uuid @(-> @design-hash USER PROJ) :user user :project project :type "design-hash"})
+            (-> (get-document ((get-view-key user project "design-hash") :id)) ;unique id
+              (update-document {:block_uuid @(-> @design-hash USER PROJ)})))
+            "save design-content"           
             (doseq [uuid @(-> @design-hash USER PROJ)] ; should add specific function for partial saving
-              (let [UUID (keyword uuid)]
-                (println (str "\n\n" (conj {:_id uuid } (-> @design-content UUID)) "\n\n"))
-              ;(if (nil? (clutch/get-document uuid))
-                (clutch/put-document (uuid-save-db UUID));save new block in design-content
-               ; (-> (clutch/get-document uuid)
-               ;   (clutch/update-document (uuid-save-db UUID))))
-              );save changed block in design-content
-            (ref-set OUTPUT {:result "success" :content ""}))))))
+              (if (nil? (get-view-key user project "design-content" uuid))
+                (put-document (uuid-save-db uuid));save new block in design-content
+                (-> (get-document ((get-view-key user project "design-content" uuid) :id))
+                  (update-document (uuid-save-db uuid)))))
+            "send result msg to front-end"
+            (ref-set OUTPUT {:result "success" :content ""})))))
 
 (defn load-design [user project]
   ;{"user" : "ZY", "project" : "proj21" , "action" : "load"}
-  (dosync (ref-set USER_ref  (clutch/dissoc-meta (clutch/get-document @DB (str user "-" project))))
-    (ref-set PROJECT_ref (clutch/dissoc-meta (clutch/get-document @DB (str user "-" project))))
+  (dosync (ref-set USER_ref  (dissoc-meta (get-document @DB (str user "-" project))))
+    (ref-set PROJECT_ref (dissoc-meta (get-document @DB (str user "-" project))))
     (ref-set OUTPUT {:result "success" :content ""}))) 
 
 
 
 (defn new-block [user project data]
- ;{"user" : "ZY", "project" : "proj21" , "extra":{"action" : "new",  "data": {"template": "loeb-spindle", "position": {"left": 20, "top": 30}}}}
- (let [loaded-data (conj data (clutch/dissoc-meta (clutch/get-document @DB (data :template))))
+ ;{"user" : "ZY", "project" : "proj21" , "action" : "new",  "data": {"template": "loeb-spindle", "position": {"left": 20, "top": 30}}}
+ (let [loaded-data (conj data (dissoc-meta (get-document @DB (data :template))))
        block-info (create-spindle-from-post loaded-data) ;@TEMPLATE_ref
        USER (keyword user)
        PROJ (keyword project)
        project-info (-> @design-hash USER PROJ)] 
- (if (clutch/document-exists? @DB (data :template))
+ (if (document-exists? @DB (data :template))
     (dosync 
       (ref-set TEMPLATE_ref  loaded-data) ;delete later, if I save template here
       (ref-set TEMPLATE_ref (merge @TEMPLATE_ref block-info))  
@@ -245,12 +275,6 @@
 
                                ))) 
   
-  ;(let [raw-post-input (json/read-json input true)
-  ;                                       user (rainput :user)
-  ;                                       project (input :project)
-  ;                                       action (input :action)
-  ;                                       data (input :data)
-  ;                                       ]  
   (POST "/design" [user project action data] 
         (let [keywordized-data (json/read-json data true)]
           (doseq[] 
@@ -266,5 +290,3 @@
 
 (def app
   (handler/site app-routes))
-
-
