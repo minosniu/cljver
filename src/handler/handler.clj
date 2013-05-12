@@ -22,7 +22,7 @@
 
 (def design-hash 
   (ref 
-    {:minos {:foo1 (atom ["uuid1"
+    {:minos {:foo2 (atom ["uuid1"
                           "uuid2"
                           ])}
      :ZY {:proj1 (atom ["uuid7"
@@ -31,7 +31,6 @@
      :kangwoo {:foo1 (atom ["uuid4"
                             "uuid5"
                             "uuid6"])}}))
-;(def design-hash (ref {}))
 (def design-content 
   (ref 
     {:uuid1 
@@ -55,7 +54,7 @@
      }) 
 
 (defn uuid-save-db [uuid]
-  "Convert atom to value to save in CouchDB as JSON"
+  "Convert from atom to value, to save in CouchDB as JSON"
   (let [UUID (keyword uuid)
         temp-name (-> @design-content UUID :template)
         info (block-template (keyword temp-name))
@@ -117,7 +116,6 @@
       (when-not (= 1 (ERROR :code)) (ref-set ERROR (merge @ERROR {:result "error" :content "the project already exists" :project_id ""})))) ;-> no user error, project exist error, success
     (ref-set OUTPUT (conj @ERROR {:project_id (str user "-" project)}))))
 
-
 (defn save-design [user project]
 ;{"user" : "minos", "project" : "foo1" , "action" : "save"}
   (let [USER (keyword user)
@@ -138,12 +136,28 @@
             (ref-set OUTPUT {:result "success" :content ""})))))
 
 (defn load-design [user project]
-  ;{"user" : "ZY", "project" : "proj21" , "action" : "load"}
-  (dosync (ref-set USER_ref  (dissoc-meta (get-document @DB (str user "-" project))))
+  ;{"user" : "ZY", "project" : "proj1" , "action" : "load"}
+  (let [USER (keyword user)
+        PROJ (keyword project)]
+  (dosync (with-db user-db
+            "load design-hash"
+            (if (nil?  (get-view-key user project "design-hash"))
+              (ref-set OUTPUT {:result "Fail" :content "No user data in DB"})
+              (ref-set design-hash (assoc-in @design-hash [USER PROJ] (atom ((get-view-key user project "design-hash") :value)))))
+            "load design-content"
+            (doseq [uuid @(-> @design-hash USER PROJ)] 
+              (if (nil? (get-view-key user project "design-content" uuid))
+                (ref-set OUTPUT {:result "Fail" :content "No block data in DB"})
+                (ref-set design-content (get-document user-db ((get-view-key user project "design-content" uuid):id)));need to correct!
+                ;(ref-set design-content (assoc-in @design-content [(keyword uuid)](atom ((get-view-key user project "design-content" uuid) ))))
+                ))
+            ))))
+    
+(comment
+    (ref-set USER_ref  (dissoc-meta (get-document @DB (str user "-" project))))
     (ref-set PROJECT_ref (dissoc-meta (get-document @DB (str user "-" project))))
-    (ref-set OUTPUT {:result "success" :content ""}))) 
-
-
+    (ref-set OUTPUT {:result "success" :content ""}) 
+)
 
 (defn new-block [user project data]
  ;{"user" : "ZY", "project" : "proj21" , "action" : "new",  "data": {"template": "loeb-spindle", "position": {"left": 20, "top": 30}}}
@@ -279,10 +293,10 @@
         (let [keywordized-data (json/read-json data true)]
           (doseq[] 
             (design-handler user project action keywordized-data)
-            (str @design-content)))) 
+            (str @design-content "\n\n" @OUTPUT)))) 
   (POST "/project" [input] (doseq[] (let [input_str (json/read-json input)] 
                                       (project-handler input)
-                                      (str @design-hash)
+                                      (str @design-hash "\n\n" @OUTPUT "\n\n" @design-content)
                                       )))
   (GET "/sirish" [] (json/write-str @PROJECT_ref))
   (route/resources "/")
