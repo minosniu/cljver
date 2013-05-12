@@ -124,7 +124,7 @@
 
 (def data-src (create-signal-source))
 (def data-outlet (create-signal-monitor))
-(connect-a-b data-src spindle {:trig0 :lce, :trig1 :gamma_dyn})
-(connect-a-b spindle data-outlet {:ia :viewer0, :ii :viewer1})
+;(connect-a-b data-src spindle {:trig0 :lce, :trig1 :gamma_dyn})
+;(connect-a-b spindle data-outlet {:ia :viewer0, :ii :viewer1})
 
 
