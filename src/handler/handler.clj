@@ -160,8 +160,8 @@
             "load design-content"
             (doseq [uuid @(-> @design-hash USER PROJ)] 
               (if (nil? (get-view-key user project "design-content" uuid))
-                (ref-set OUTPUT {:result "Fail" :content "No block data in DB"})
-                (doseq [] (ref-set OUTPUT {:result "success"})
+                ();(ref-set OUTPUT {:result "success"})
+                (doseq [] (ref-set OUTPUT {:result "success" :content @design-content})
                   (ref-set design-content (get-document @DB ((get-view-key user project "design-content" uuid):id))));need to correct!
                 ;(ref-set design-content (assoc-in @design-content [(keyword uuid)](atom ((get-view-key user project "design-content" uuid) ))))
                 ))
