@@ -72,28 +72,28 @@
 (def error-code (ref 0)) ; for diverse error with connection&disconnection
 ;log implementation
 ;
-;(with-db @DB
-;"save-view: design-view and project-view"
-;  (save-view 
-;    "design-view"
-;    (view-server-fns 
-;      :cljs
-;      {:design-hash {:map (fn [doc] (when (and (aget doc "user") (aget doc "project") (aget doc "block_uuid"))
-;                                      (js/emit (str (aget doc "user") "-" (aget doc "project")) (aget doc "block_uuid")) 
-;                                      ))}
-;       :design-content {:map (fn [doc] (when (and (aget doc "in") (aget doc "out") (aget doc "uuid"))
-;                                         (js/emit (aget doc "uuid") (aget doc "template"))))}  }))
-;         ;template, user should be added
-;  (comment 
-;    (save-view 
-;      "user-view"
-;      (view-server-fns 
-;        :cljs
-;        {:user-view {:map (fn [doc] (when (and (aget doc "user") (aget doc "project") (aget doc "block_uuid"))
-;                                      (js/emit (str (aget doc "user") "-" (aget doc "project")) (aget doc "block_uuid")) 
-;                                      ))} }))
-;    )
-;         )
+(with-db user-db
+"save-view: design-view and project-view"
+  (save-view 
+    "design-view"
+    (view-server-fns 
+      :cljs
+      {:design-hash {:map (fn [doc] (when (and (aget doc "user") (aget doc "project") (aget doc "block_uuid"))
+                                      (js/emit (str (aget doc "user") "-" (aget doc "project")) (aget doc "block_uuid")) 
+                                      ))}
+       :design-content {:map (fn [doc] (when (and (aget doc "in") (aget doc "out") (aget doc "uuid"))
+                                         (js/emit (aget doc "uuid") (aget doc "template"))))}  }))
+         ;template, user should be added
+  
+    (save-view 
+      "template-view"
+      (view-server-fns 
+        :cljs
+        {:template-view {:map (fn [doc] (when (and (aget doc "in") (aget doc "out") (aget doc "name"))
+                                      (js/emit  (aget doc "name") (concat (aget doc "in") (aget doc "out") (aget doc "name")) ) 
+                                      ))} }))
+    
+         )
 
 (defn get-view-key [user project type & uuid]
   "get a key of each view"
@@ -206,8 +206,9 @@
         position (data :position)]
     (dosync (if (nil? (design-content block_id)) 
               (ref-set OUTPUT {:result "error" :content "the block does not exist" })
-              (ref-set OUTPUT {:result "success" :content position}))
-      (reset! (-> @design-content block_id :position) position)
+              (doseq[] (reset! (-> @design-content block_id :position) position) (ref-set OUTPUT {:result "success"}))
+              )
+      
       ;add put-document!!!!!! (if we want to save it temporarily)
       (ref-set PROJECT_ref (merge @PROJECT_ref 
                                   {:data (conj (PROJECT_ref :data) {block_id (merge ((PROJECT_ref :data) block_id) {:position (data :position)})})})))))
