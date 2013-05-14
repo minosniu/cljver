@@ -104,17 +104,30 @@
 
 (defn new-design [user project]
 ;{"user" : "ZY", "project" : "proj21" , "action" : "new"}
+  "create new project only if there is no project exist"
+(let [USER (keyword user)
+      PROJ (keyword project)]
   (dosync  
-    (if (nil? (get-document @DB user));user check
-      (ref-set ERROR (merge @ERROR {:result "error" :content "no user exists" :project_id ""}));no user
-      (doseq[](ref-set ERROR (merge @ERROR {:result "success" :content "" :project_id (str user "-" project)}))
-        (ref-set USER_ref (merge @USER_ref {:name user}))
-        (ref-set PROJECT_ref (merge @PROJECT_ref {:user user :name project}))));user exist
+;    (if (nil? (get-document @DB (str user "-" project)));user check
+;      (ref-set ERROR (merge @ERROR {:result "error" :content "no user exists" :project_id ""}));no user
+;      (doseq[](ref-set ERROR (merge @ERROR {:result "success" :content "" :project_id (str user "-" project)}))
+;        (ref-set USER_ref (merge @USER_ref {:name user}))
+;        (ref-set PROJECT_ref (merge @PROJECT_ref {:user user :name project}))));user exist
     ;project check
     (if (nil? (get-document @DB (str user "-" project)))
-      (when (= (ERROR :content) "") (put-document @DB (conj {:user user :project project :block_uuid [] :type "design-hash"} {:_id (str user "-" project)})))
-      (when-not (= 1 (ERROR :code)) (ref-set ERROR (merge @ERROR {:result "error" :content "the project already exists" :project_id ""})))) ;-> no user error, project exist error, success
-    (ref-set OUTPUT (conj @ERROR {:project_id (str user "-" project)}))))
+      ;(when (= (ERROR :content) "") (put-document @DB (conj {:user user :project project :block_uuid [] :type "design-hash"} {:_id (str user "-" project)})))
+      ;(when-not (= 1 (ERROR :code)) (ref-set ERROR (merge @ERROR {:result "error" :content "the project already exists" :project_id ""})))
+      (doseq []
+        ;create new design and save it into design hash!!!
+        (ref-set design-hash (assoc-in @design-hash [(keyword user)] {(keyword project) (atom "")}));;;;;;;;
+       ; (ref-set OUTPUT {:result "success" :content ((get-view-key user project "design-hash") :id)})
+        (put-document {:block_uuid @(-> @design-hash USER PROJ) :user user :project project :type "design-hash"})
+        (println @design-hash))
+       (ref-set OUTPUT {:result "error" :content "project exists"})
+      
+      ) ;-> no user error, project exist error, success
+    ;(ref-set OUTPUT (conj @ERROR {:project_id (str user "-" project)}))
+)))
 
 (defn save-design [user project]
 ;{"user" : "minos", "project" : "foo1" , "action" : "save"}
@@ -144,7 +157,10 @@
             "load design-hash"
             (if (nil?  (get-view-key user project "design-hash"))
               (ref-set OUTPUT {:result "Fail" :content "No user data in DB"})
-              (ref-set design-hash (assoc-in @design-hash [USER PROJ] (atom ((get-view-key user project "design-hash") :value)))))
+              (dosync (ref-set design-hash (assoc-in @design-hash [USER PROJ] (atom ((get-view-key user project "design-hash") :value))))
+              (ref-set OUTPUT {:result "success" :content ((get-view-key user project "design-hash") :id)})
+             )
+              )
             "load design-content"
             (doseq [uuid @(-> @design-hash USER PROJ)] 
               (if (nil? (get-view-key user project "design-content" uuid))
@@ -194,8 +210,9 @@
         position (data :position)]
     (dosync (if (nil? (design-content block_id)) 
               (ref-set OUTPUT {:result "error" :content "the block does not exist" })
-              (ref-set OUTPUT {:result "success"}))
+              (ref-set OUTPUT {:result "success" :content position}))
       (reset! (-> @design-content block_id :position) position)
+      ;add put-document!!!!!! (if we want to save it temporarily)
       (ref-set PROJECT_ref (merge @PROJECT_ref 
                                   {:data (conj (PROJECT_ref :data) {block_id (merge ((PROJECT_ref :data) block_id) {:position (data :position)})})})))))
 
@@ -296,7 +313,8 @@
         (let [keywordized-data (json/read-json data true)]
           (doseq[] 
             (design-handler user project action keywordized-data)
-             (json/write-str @OUTPUT)
+             
+            (json/write-str @OUTPUT)
             ;(str @design-content "\n\n" @OUTPUT)
             ))) 
   (POST "/project" [user project action] (doseq[] (let [;input_str (json/read-json input)
