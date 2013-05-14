@@ -295,12 +295,14 @@
         (let [keywordized-data (json/read-json data true)]
           (doseq[] 
             (design-handler user project action keywordized-data)
-            (str @design-content "\n\n" @OUTPUT)))) 
+             (json/write-str @OUTPUT)
+            ;(str @design-content "\n\n" @OUTPUT)
+            ))) 
   (POST "/project" [user project action] (doseq[] (let [;input_str (json/read-json input)
                                                         ] 
                                       (project-handler user project action)
                                       ;(str @design-hash "\n\n" @OUTPUT "\n\n" @design-content)
-                                      (str @OUTPUT)
+                                       (json/write-str @OUTPUT)
                                       )))
   (GET "/sirish" [] (json/write-str @PROJECT_ref))
   (route/resources "/")
