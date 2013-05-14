@@ -64,7 +64,7 @@
      :in  (-get-ins (keys (spindle-json :in)))
      :out (-get-outs id (keys 
                           (spindle-json :out)))
-     :position (spindle-json :position)
+     :position (-get-ins (keys (spindle-json :position)))
      :template (spindle-json :template) }}))
   
 ;(create-spindle-from-post a-spindle)
