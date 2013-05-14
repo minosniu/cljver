@@ -311,8 +311,8 @@
           (doseq[] 
             (design-handler user project action keywordized-data)
              
-            ;(json/write-str @OUTPUT)
-            (str @design-content "\n\n" @OUTPUT)
+            (json/write-str @OUTPUT)
+            ;(str @design-content "\n\n" @OUTPUT)
             ))) 
   (POST "/project" [user project action] (doseq[] (let [;input_str (json/read-json input)
                                                         ] 
