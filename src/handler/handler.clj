@@ -191,9 +191,10 @@
 (defn move-block [data]
   ;{"user" : "ZY", "project" : "proj21" , "extra":{"action" : "move", "type" : "block", "data":  {"block": "spindle1", "position": {"left": 33, "top": 21}}}}
   (let [block_id (keyword (data :block))]
-    (dosync (if (nil? ((PROJECT_ref :data) block_id)) 
+    (dosync (if (nil? (design-content block_id)) 
               (ref-set OUTPUT {:result "error" :content "the block does not exist" })
               (ref-set OUTPUT {:result "success"}))
+      
       (ref-set PROJECT_ref (merge @PROJECT_ref 
                                   {:data (conj (PROJECT_ref :data) {block_id (merge ((PROJECT_ref :data) block_id) {:position (data :position)})})})))))
 
@@ -298,7 +299,8 @@
   (POST "/project" [user project action] (doseq[] (let [;input_str (json/read-json input)
                                                         ] 
                                       (project-handler user project action)
-                                      (str @design-hash "\n\n" @OUTPUT "\n\n" @design-content)
+                                      ;(str @design-hash "\n\n" @OUTPUT "\n\n" @design-content)
+                                      (str @OUTPUT)
                                       )))
   (GET "/sirish" [] (json/write-str @PROJECT_ref))
   (route/resources "/")
