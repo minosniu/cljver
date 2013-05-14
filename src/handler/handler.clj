@@ -149,7 +149,7 @@
   ;{"user" : "ZY", "project" : "proj1" , "action" : "load"}
   (let [USER (keyword user)
         PROJ (keyword project)]
-  (dosync (with-db user-db
+  (dosync (with-db @DB
             "load design-hash"
             (if (nil?  (get-view-key user project "design-hash"))
               (ref-set OUTPUT {:result "Fail" :content "No user data in DB"})
@@ -161,7 +161,7 @@
             (doseq [uuid @(-> @design-hash USER PROJ)] 
               (if (nil? (get-view-key user project "design-content" uuid))
                 (ref-set OUTPUT {:result "Fail" :content "No block data in DB"})
-                (ref-set design-content (get-document user-db ((get-view-key user project "design-content" uuid):id)));need to correct!
+                (ref-set design-content (get-document @DB ((get-view-key user project "design-content" uuid):id)));need to correct!
                 ;(ref-set design-content (assoc-in @design-content [(keyword uuid)](atom ((get-view-key user project "design-content" uuid) ))))
                 ))
             ))))
