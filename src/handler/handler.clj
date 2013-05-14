@@ -112,7 +112,7 @@
         (ref-set PROJECT_ref (merge @PROJECT_ref {:user user :name project}))));user exist
     ;project check
     (if (nil? (get-document @DB (str user "-" project)))
-      (when (= (ERROR :content) "") (put-document @DB (conj {:user user :proj project :block_uuid []} {:_id (str user "-" project)})))
+      (when (= (ERROR :content) "") (put-document @DB (conj {:user user :project project :block_uuid [] :type "design-hash"} {:_id (str user "-" project)})))
       (when-not (= 1 (ERROR :code)) (ref-set ERROR (merge @ERROR {:result "error" :content "the project already exists" :project_id ""})))) ;-> no user error, project exist error, success
     (ref-set OUTPUT (conj @ERROR {:project_id (str user "-" project)}))))
 
@@ -190,11 +190,12 @@
                                   {:data (apply dissoc (PROJECT_ref :data) [(keyword (data :block))])})))))
 (defn move-block [data]
   ;{"user" : "ZY", "project" : "proj21" , "extra":{"action" : "move", "type" : "block", "data":  {"block": "spindle1", "position": {"left": 33, "top": 21}}}}
-  (let [block_id (keyword (data :block))]
+  (let [block_id (keyword (data :block))
+        position (data :position)]
     (dosync (if (nil? (design-content block_id)) 
               (ref-set OUTPUT {:result "error" :content "the block does not exist" })
               (ref-set OUTPUT {:result "success"}))
-      
+      (reset! (-> @design-content block_id :position) position)
       (ref-set PROJECT_ref (merge @PROJECT_ref 
                                   {:data (conj (PROJECT_ref :data) {block_id (merge ((PROJECT_ref :data) block_id) {:position (data :position)})})})))))
 
