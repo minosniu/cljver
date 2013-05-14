@@ -195,13 +195,18 @@
 ;(reset! (-> @design-content :uuid2 :in :gamma_dyn) "some_wierd_input")
 ; when received USER and PROJ, use (-> @design-hash (keyword USER) (keyword PROJ)) to retrive the uuid list
 ; Connect POST call should give: uuid_src, port_src, uuid_dest, port_dest
-(defn delete-block [data]
-  ;{"user" : "ZY", "project" : "proj21" , "extra":{"action" : "delete", "type" : "block", "data": {"block": "spindle4"}}}
-  (if (nil? ((PROJECT_ref :data)(keyword (data :block)))) 
+(defn delete-block [user project data]
+  ;{"action" : "delete", "type" : "block", "data": {"block": "spindle4"}}
+  (let [USER (keyword user)
+        PROJ (keyword project)
+        block_id (keyword (data :block))]
+  (if (nil? (design-content block_id)) 
     (dosync(ref-set OUTPUT {:result "error" :content "the block does not exist" }))
     (dosync (ref-set OUTPUT {:result "success"})
-      (ref-set PROJECT_ref (merge @PROJECT_ref 
-                                  {:data (apply dissoc (PROJECT_ref :data) [(keyword (data :block))])})))))
+      (println block_id) 
+      (ref-set design-content (dissoc @design-content block_id))
+      ;(reset (-> design-hash USER PROJ) (dissoc @design-hash block_id))
+      ))))
 (defn move-block [data]
   ;{"user" : "ZY", "project" : "proj21" , "extra":{"action" : "move", "type" : "block", "data":  {"block": "spindle1", "position": {"left": 33, "top": 21}}}}
   (let [block_id (keyword (data :block))
@@ -282,7 +287,7 @@
     (case action
       "save" (save-design user project)
       "new" (new-block user project data) ;find block from library and save in project in memory
-      "delete"(delete-block data) ;remove one block from project in memory
+      "delete"(delete-block user project data) ;remove one block from project in memory
       "clear" (clear-block user project);
       "connect" (connect-block data);change two block pin info in project in memory
       "disconnect" (disconnect-block data);change two block pin info in project in memory
@@ -315,8 +320,8 @@
           (doseq[] 
             (design-handler user project action keywordized-data)
              
-            ;(json/write-str @OUTPUT)
-            (str @design-content "\n\n" @OUTPUT)
+            (json/write-str @OUTPUT)
+            ;(str @design-content "\n\n" @OUTPUT)
             ))) 
   (POST "/project" [user project action] (doseq[] (let [;input_str (json/read-json input)
                                                         ] 
