@@ -108,7 +108,7 @@
 (let [USER (keyword user)
       PROJ (keyword project)
       ]
-  (dosync  (with-db user-db
+  (dosync  (with-db @DB
     (if (nil? (get-view-key user project "design-hash"))
       ;(when (= (ERROR :content) "") (put-document @DB (conj {:user user :project project :block_uuid [] :type "design-hash"} {:_id (str user "-" project)})))
       ;(when-not (= 1 (ERROR :code)) (ref-set ERROR (merge @ERROR {:result "error" :content "the project already exists" :project_id ""})))
@@ -116,7 +116,7 @@
         ;create new design and save it into design hash!!!
         ;(ref-set design-hash (assoc-in @design-hash [USER PROJ] (atom "")));;;;;;;;
         (ref-set design-hash (assoc-in @design-hash [(keyword user) (keyword project)] (atom "")))
-        (with-db user-db (put-document {:block_uuid [] :user user :project project :type "design-hash"}))
+        (with-db @DB (put-document {:block_uuid [] :user user :project project :type "design-hash"}))
         (ref-set OUTPUT {:result "success" :content ((get-view-key user project "design-hash") :id)})
        
        (println @design-hash))
@@ -130,7 +130,7 @@
   (let [USER (keyword user)
         PROJ (keyword project)]
     (println @design-hash)
-  (dosync (with-db user-db
+  (dosync (with-db @DB
             "save design-hash"
             (if (nil?  (get-view-key user project "design-hash"))
             (put-document {:block_uuid @(-> @design-hash USER PROJ) :user user :project project :type "design-hash"})
