@@ -36,12 +36,12 @@
     {:uuid1 
      {:in {:gamma_dyn (atom "no_input") :lce (atom "no_input")} 
       :out {:ii "ii_block1" :ia "ia_block1"}
-      :position (atom {:left 20 :top 30})
+      :position  {:left (atom 20) :top (atom 30)}
       :template "loeb-spindle"}
      :uuid2
      {:in {:gamma_dyn (atom "no_input") :lce (atom "no_input")} 
       :out {:ii "ii_block2" :ia "ia_block2"}
-      :position (atom {:left 50 :top 10})
+      :position  {:left (atom 50) :top (atom 10)}
       :template "loeb-spindle"}}))
 
 (def block-template 
@@ -90,7 +90,7 @@
 ;      (view-server-fns 
 ;        :cljs
 ;        {:template-view {:map (fn [doc] (when (and (aget doc "in") (aget doc "out") (aget doc "name"))
-;                                      (js/emit  (aget doc "name") (concat (aget doc "in") (aget doc "out") (aget doc "name")) ) 
+;                                      (js/emit  (aget doc "name") (to-array [(aget doc "in") (aget doc "out") (aget doc "name")]) ) 
 ;                                      ))} }))
 ;    
 ;         )
@@ -101,7 +101,9 @@
   (case type
     "design-hash" (first (get-view "design-view" "design-hash" {:key (str user "-" project)}))
     "design-content" (first (get-view "design-view" "design-content" {:key key_uuid})))))
-
+(defn parse-int [s]
+  "str to int"
+   (Integer. (re-find  #"\d+" s )))
 (defn new-design [user project]
 ;{"user" : "ZY", "project" : "proj21" , "action" : "new"}
   "create new project only if there is no project exist"
@@ -206,7 +208,9 @@
         position (data :position)]
     (dosync (if (nil? (design-content block_id)) 
               (ref-set OUTPUT {:result "error" :content "the block does not exist" })
-              (doseq[] (reset! (-> @design-content block_id :position) position) (ref-set OUTPUT {:result "success"}))
+              (doseq[] (reset! (-> @design-content block_id :position :left)  (position :left)) 
+                (reset! (-> @design-content block_id :position :top)  (position :top)) 
+                (ref-set OUTPUT {:result "success"}))
               )
       
       ;add put-document!!!!!! (if we want to save it temporarily)
@@ -311,8 +315,8 @@
           (doseq[] 
             (design-handler user project action keywordized-data)
              
-            (json/write-str @OUTPUT)
-            ;(str @design-content "\n\n" @OUTPUT)
+            ;(json/write-str @OUTPUT)
+            (str @design-content "\n\n" @OUTPUT)
             ))) 
   (POST "/project" [user project action] (doseq[] (let [;input_str (json/read-json input)
                                                         ] 
