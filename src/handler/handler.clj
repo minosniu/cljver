@@ -121,7 +121,7 @@
         ;create new design and save it into design hash!!!
         (ref-set design-hash (assoc-in @design-hash [(keyword user)] {(keyword project) (atom "")}));;;;;;;;
        ; (ref-set OUTPUT {:result "success" :content ((get-view-key user project "design-hash") :id)})
-        (put-document {:block_uuid @(-> @design-hash USER PROJ) :user user :project project :type "design-hash"})
+        ;(put-document {:block_uuid @(-> @design-hash USER PROJ) :user user :project project :type "design-hash"})
         (println @design-hash))
        (ref-set OUTPUT {:result "error" :content "project exists"})
       
