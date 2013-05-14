@@ -205,7 +205,7 @@
     (dosync (ref-set OUTPUT {:result "success"})
       (println block_id) 
       (ref-set design-content (dissoc @design-content block_id))
-      ;(reset (-> design-hash USER PROJ) (dissoc @design-hash block_id))
+      (reset! (-> @design-hash USER PROJ) (into [](filter #(not (= (data :block) %)) @(-> @design-hash USER PROJ))))
       ))))
 (defn move-block [data]
   ;{"user" : "ZY", "project" : "proj21" , "extra":{"action" : "move", "type" : "block", "data":  {"block": "spindle1", "position": {"left": 33, "top": 21}}}}
@@ -313,7 +313,7 @@
                                ;(str @TEMPLATE_ref)
                                (json/write-str @OUTPUT)
 
-                               ))) 
+                               )))  
   
   (POST "/design" [user project action data] 
         (let [keywordized-data (json/read-json data true)]
