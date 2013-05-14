@@ -22,7 +22,7 @@
 
 (def design-hash 
   (ref 
-    {:minos {:foo2 (atom ["uuid1"
+    {:minos {:foo1 (atom ["uuid1"
                           "uuid2"
                           ])}
      :ZY {:proj1 (atom ["uuid7"
@@ -71,29 +71,29 @@
 (def OUTPUT (ref ""))
 (def error-code (ref 0)) ; for diverse error with connection&disconnection
 ;log implementation
-
-(with-db user-db
-"save-view: design-view and project-view"
-  (save-view 
-    "design-view"
-    (view-server-fns 
-      :cljs
-      {:design-hash {:map (fn [doc] (when (and (aget doc "user") (aget doc "project") (aget doc "block_uuid"))
-                                      (js/emit (str (aget doc "user") "-" (aget doc "project")) (aget doc "block_uuid")) 
-                                      ))}
-       :design-content {:map (fn [doc] (when (and (aget doc "in") (aget doc "out") (aget doc "uuid"))
-                                         (js/emit (aget doc "uuid") (aget doc "template"))))}  }))
-         ;template, user should be added
-  (comment 
-    (save-view 
-      "user-view"
-      (view-server-fns 
-        :cljs
-        {:user-view {:map (fn [doc] (when (and (aget doc "user") (aget doc "project") (aget doc "block_uuid"))
-                                      (js/emit (str (aget doc "user") "-" (aget doc "project")) (aget doc "block_uuid")) 
-                                      ))} }))
-    )
-         )
+;
+;(with-db @DB
+;"save-view: design-view and project-view"
+;  (save-view 
+;    "design-view"
+;    (view-server-fns 
+;      :cljs
+;      {:design-hash {:map (fn [doc] (when (and (aget doc "user") (aget doc "project") (aget doc "block_uuid"))
+;                                      (js/emit (str (aget doc "user") "-" (aget doc "project")) (aget doc "block_uuid")) 
+;                                      ))}
+;       :design-content {:map (fn [doc] (when (and (aget doc "in") (aget doc "out") (aget doc "uuid"))
+;                                         (js/emit (aget doc "uuid") (aget doc "template"))))}  }))
+;         ;template, user should be added
+;  (comment 
+;    (save-view 
+;      "user-view"
+;      (view-server-fns 
+;        :cljs
+;        {:user-view {:map (fn [doc] (when (and (aget doc "user") (aget doc "project") (aget doc "block_uuid"))
+;                                      (js/emit (str (aget doc "user") "-" (aget doc "project")) (aget doc "block_uuid")) 
+;                                      ))} }))
+;    )
+;         )
 
 (defn get-view-key [user project type & uuid]
   "get a key of each view"
@@ -120,6 +120,7 @@
 ;{"user" : "minos", "project" : "foo1" , "action" : "save"}
   (let [USER (keyword user)
         PROJ (keyword project)]
+    (println @design-hash)
   (dosync (with-db user-db
             "save design-hash"
             (if (nil?  (get-view-key user project "design-hash"))
@@ -174,9 +175,8 @@
       (reset! project-info (conj @project-info (name(first(keys block-info))))) ;design-hash
      
       (ref-set PROJECT_ref (merge @PROJECT_ref {:data (conj (PROJECT_ref :data) {(keyword (TEMPLATE_ref :id)) {:in (TEMPLATE_ref :in) :out (TEMPLATE_ref :out) :position (data :position)}})}))
-      (ref-set OUTPUT {:result "success" :block (TEMPLATE_ref :id)})) ;originally name
+      (ref-set OUTPUT {:result "success" :block (name(first(keys block-info)))})) ;originally name
     (dosync (ref-set OUTPUT {:result "error" :content "the template does not exist"})))))
-
 
 ;(reset! (-> @design-content :uuid2 :in :gamma_dyn) "some_wierd_input")
 ; when received USER and PROJ, use (-> @design-hash (keyword USER) (keyword PROJ)) to retrive the uuid list
@@ -268,11 +268,12 @@
       "disconnect" (disconnect-block data);change two block pin info in project in memory
       "move" (move-block data) ; change block position in project in memory 
       )))
-(defn project-handler [request]
-  (let [input (json/read-json request)
-        user (input :user)
-        project (input :project)
-        action (input :action)]
+(defn project-handler [user project action]
+  (let [;input (json/read-json request)
+        ;user (input :user)
+        ;project (input :project)
+        ;action (input :action)
+        ]
   (case action
     "new" (new-design user project)
     "save"  (save-design user project) ;should be removed later
@@ -294,8 +295,9 @@
           (doseq[] 
             (design-handler user project action keywordized-data)
             (str @design-content "\n\n" @OUTPUT)))) 
-  (POST "/project" [input] (doseq[] (let [input_str (json/read-json input)] 
-                                      (project-handler input)
+  (POST "/project" [user project action] (doseq[] (let [;input_str (json/read-json input)
+                                                        ] 
+                                      (project-handler user project action)
                                       (str @design-hash "\n\n" @OUTPUT "\n\n" @design-content)
                                       )))
   (GET "/sirish" [] (json/write-str @PROJECT_ref))
