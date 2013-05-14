@@ -46,6 +46,11 @@
     (empty? key-list)     {}
     :else (conj {(first key-list) (atom "no_input")}; (atom "no_input")
                  (-get-ins (rest key-list)))))
+(defn -get-position [key-list]
+  (cond 
+    (empty? key-list)     {}
+    :else (conj {(first key-list) (atom 0)}; (atom "no_input")
+                 (-get-position (rest key-list)))))
 
 (defn -get-outs [id key-list]
   (let [first-key (first key-list)]
@@ -64,7 +69,7 @@
      :in  (-get-ins (keys (spindle-json :in)))
      :out (-get-outs id (keys 
                           (spindle-json :out)))
-     :position (-get-ins (keys (spindle-json :position)))
+     :position (-get-position (keys (spindle-json :position)))
      :template (spindle-json :template) }}))
   
 ;(create-spindle-from-post a-spindle)
