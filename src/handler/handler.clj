@@ -175,7 +175,7 @@
               (doseq [uuid @(-> @design-hash USER PROJ)] 
                 (if (nil? (get-view-key user project "design-content" uuid))
                   ();(ref-set OUTPUT {:result "success"})
-                  (doseq [] (ref-set OUTPUT {:result "success" :content ((get-view-key user project "design-content" uuid) :id)})
+                  (doseq [] ;(ref-set OUTPUT {:result "success" :content ((get-view-key user project "design-content" uuid) :id)})
                     (ref-set design-content (merge @design-content (uuid-load-db uuid)))
                     );need to correct!
                   ;(ref-set design-content (assoc-in @design-content [(keyword uuid)](atom ((get-view-key user project "design-content" uuid) ))))
