@@ -55,7 +55,6 @@
 
 (defn uuid-save-db [uuid]
   "Convert from atom to value, to save in CouchDB as JSON"
-  (println (first (get-view "template-view" "template" {:key "loeb-spindle"})))
   (let [UUID (keyword uuid)
         temp-name (-> @design-content UUID :template)    
         info (first (get-view "template-view" "template" {:key temp-name}))
@@ -207,12 +206,10 @@
        PROJ (keyword project)
       ; project-info @(-> @design-hash USER PROJ)
        ] 
-   ;(println @design-hash)
  (if (document-exists? @DB (data :template))
     (dosync 
       "save design-content into memory"
       (ref-set design-content (conj @design-content block-info));design-content
-      (println (first (keys block-info)))
       (reset! (-> @design-content block-id :position :left) (-> data :position :left))  ;position-left
       (reset! (-> @design-content block-id :position :top) (-> data :position :top))   ;position-top
       "save design-hash into memory"
@@ -233,7 +230,6 @@
   (if (nil? (design-content block_id)) 
     (dosync(ref-set OUTPUT {:result "error" :content "the block does not exist" }))
     (dosync (ref-set OUTPUT {:result "success"})
-      ;(println block_id) 
       (ref-set design-content (dissoc @design-content block_id))
       (reset! (-> @design-hash USER PROJ) (into [](filter #(not (= (data :block) %)) @(-> @design-hash USER PROJ))))
       ))))
@@ -353,14 +349,14 @@
           (doseq[] 
             (design-handler user project action keywordized-data)
              
-            ;(json/write-str @OUTPUT)
-            (str @design-content "\n\n" @OUTPUT "\n\n" @design-hash)
+            (json/write-str @OUTPUT)
+            ;(str @design-content "\n\n" @OUTPUT "\n\n" @design-hash)
             ))) 
   (POST "/project" [user project action] (doseq[] (let [;input_str (json/read-json input)
                                                         ] 
                                       (project-handler user project action)
-                                      (str @design-hash "\n\n" @OUTPUT "\n\n" @design-content)
-                                       ;(json/write-str @OUTPUT)
+                                      ;(str @design-hash "\n\n" @OUTPUT "\n\n" @design-content)
+                                       (json/write-str @OUTPUT)
                                       )))
   (GET "/sirish" [] (json/write-str @OUTPUT)); need to be changed
   (route/resources "/")
