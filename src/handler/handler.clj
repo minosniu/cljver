@@ -90,27 +90,27 @@
 (def error-code (ref 0)) ; for diverse error with connection&disconnection
 
 ;
-;(with-db @DB
-;"save-view: design-view and project-view"
-;  (save-view 
-;    "design-view"
-;    (view-server-fns 
-;      :cljs
-;      {:design-hash {:map (fn [doc] (when (and (aget doc "user") (aget doc "project") (aget doc "block_uuid"))
-;                                      (js/emit (str (aget doc "user") "-" (aget doc "project")) (aget doc "block_uuid")) 
-;                                      ))}
-;       :design-content {:map (fn [doc] (when (and (aget doc "in") (aget doc "out") (aget doc "uuid"))
-;                                         (js/emit (aget doc "uuid") (to-array [(aget doc "in") (aget doc "out")  (aget doc "position") (aget doc "template")]))))}  }))
-;
-;    (save-view 
-;      "template-view"
-;      (view-server-fns 
-;        :cljs
-;        {:template {:map  (fn [doc] (when (and (aget doc "in") (aget doc "out") (aget doc "name"))                                     
-;                                      (js/emit  (aget doc "name") (to-array [(aget doc "in") (aget doc "out") ]) ) 
-;                                      )) } }))
-;             ;user should be added
-;         )
+(with-db @DB
+"save-view: design-view and project-view"
+  (save-view 
+    "design-view"
+    (view-server-fns 
+      :cljs
+      {:design-hash {:map (fn [doc] (when (and (aget doc "user") (aget doc "project") (aget doc "block_uuid"))
+                                      (js/emit (str (aget doc "user") "-" (aget doc "project")) (aget doc "block_uuid")) 
+                                      ))}
+       :design-content {:map (fn [doc] (when (and (aget doc "in") (aget doc "out") (aget doc "uuid"))
+                                         (js/emit (aget doc "uuid") (to-array [(aget doc "in") (aget doc "out")  (aget doc "position") (aget doc "template")]))))}  }))
+
+    (save-view 
+      "template-view"
+      (view-server-fns 
+        :cljs
+        {:template {:map  (fn [doc] (when (and (aget doc "in") (aget doc "out") (aget doc "name"))                                     
+                                      (js/emit  (aget doc "name") (to-array [(aget doc "in") (aget doc "out") ]) ) 
+                                      )) } }))
+             ;user should be added
+         )
 
 (defn get-view-key [user project type & uuid]
   "get a key of each view"
