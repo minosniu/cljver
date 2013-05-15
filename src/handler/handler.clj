@@ -56,45 +56,50 @@
 (defn uuid-save-db [uuid]
   "Convert from atom to value, to save in CouchDB as JSON"
   (let [UUID (keyword uuid)
-        temp-name (-> @design-content UUID :template)
-        ALL-TEMPLATE (dissoc-meta (get-document @DB temp-name))
-        info (ALL-TEMPLATE (keyword temp-name))
+        temp-name (-> @design-content UUID :template)    
+        info (first (get-view "template-view" "template" {:key temp-name}))
+        in (first (info :value))
+        out (second (info :value ))
+        position (last (info :value))
         temp_in (atom {})
-        temp_out (atom {})]
-    (doseq [in-port (keys (info :in))] 
-      (reset! temp_in (conj @temp_in {in-port @(-> @design-content UUID :in in-port)})))
-    (doseq [out-port (keys (info :out))]
-      (reset! temp_out (conj @temp_out {out-port (-> @design-content UUID :out out-port)})))
-    {:uuid (name UUID) :in @temp_in :out @temp_out :position (info :position) :template temp-name :type "design-content"}))
+        temp_out (atom {})
+        temp_position (atom {})]
+    (doseq [in-port (keys in)] ;input port
+      (reset! temp_in (conj @temp_in {in-port @(-> @design-content UUID :in in-port)}))) 
+    (doseq [out-port (keys out)];output port
+      (reset! temp_out (conj @temp_out {out-port (-> @design-content UUID :out out-port)}))) 
+    (doseq [coord (keys position)];position
+      (reset! temp_position (conj @temp_position {coord @(-> @design-content UUID :position coord)})))
+    {:uuid (name UUID) :in @temp_in :out @temp_out :position @temp_position :template temp-name :type "design-content"}))
 
 
 (def ERROR (ref {:result "success" :content "" :project_id ""}));result = error -> code., result=success -> ""
 (def OUTPUT (ref ""))
 (def error-code (ref 0)) ; for diverse error with connection&disconnection
-;log implementation
+
 ;
-;(with-db user-db
-;"save-view: design-view and project-view"
-;  (save-view 
-;    "design-view"
-;    (view-server-fns 
-;      :cljs
-;      {:design-hash {:map (fn [doc] (when (and (aget doc "user") (aget doc "project") (aget doc "block_uuid"))
-;                                      (js/emit (str (aget doc "user") "-" (aget doc "project")) (aget doc "block_uuid")) 
-;                                      ))}
-;       :design-content {:map (fn [doc] (when (and (aget doc "in") (aget doc "out") (aget doc "uuid"))
-;                                         (js/emit (aget doc "uuid") (aget doc "template"))))}  }))
-;         ;template, user should be added
-;  
-;    (save-view 
-;      "template-view"
-;      (view-server-fns 
-;        :cljs
-;        {:template-view {:map (fn [doc] (when (and (aget doc "in") (aget doc "out") (aget doc "name"))
-;                                      (js/emit  (aget doc "name") (to-array [(aget doc "in") (aget doc "out") (aget doc "name")]) ) 
-;                                      ))} }))
-;    
-;         )
+(with-db @DB
+"save-view: design-view and project-view"
+  (save-view 
+    "design-view"
+    (view-server-fns 
+      :cljs
+      {:design-hash {:map (fn [doc] (when (and (aget doc "user") (aget doc "project") (aget doc "block_uuid"))
+                                      (js/emit (str (aget doc "user") "-" (aget doc "project")) (aget doc "block_uuid")) 
+                                      ))}
+       :design-content {:map (fn [doc] (when (and (aget doc "in") (aget doc "out") (aget doc "uuid"))
+                                         (js/emit (aget doc "uuid") (aget doc "template"))))}  }))
+
+  
+    (save-view 
+      "template-view"
+      (view-server-fns 
+        :cljs
+        {:template {:map  (fn [doc] (when (and (aget doc "in") (aget doc "out") (aget doc "name"))                                     
+                                      (js/emit  (aget doc "name") (to-array [(aget doc "in") (aget doc "out") (aget doc "position")]) ) 
+                                      )) } }))
+             ;user should be added
+         )
 
 (defn get-view-key [user project type & uuid]
   "get a key of each view"
@@ -102,6 +107,7 @@
   (case type
     "design-hash" (first (get-view "design-view" "design-hash" {:key (str user "-" project)}))
     "design-content" (first (get-view "design-view" "design-content" {:key key_uuid})))))
+
 
 (defn new-design [user project]
 ;{"user" : "ZY", "project" : "proj21" , "action" : "new"}
@@ -119,8 +125,6 @@
         (ref-set design-hash (assoc-in @design-hash [USER PROJ] (atom [])))
         (with-db @DB (put-document {:block_uuid [] :user user :project project :type "design-hash"}))
         (ref-set OUTPUT {:result "success" :content ((get-view-key user project "design-hash") :id)})
-       
-       (println @design-hash)
        )
       (ref-set OUTPUT {:result "error" :content "project exists"})
       ) ;-> no user error, project exist error, success
@@ -131,25 +135,24 @@
 ;{"user" : "minos", "project" : "foo1" , "action" : "save"}
   (let [USER (keyword user)
         PROJ (keyword project)]
-    (println @design-hash)
   (dosync (with-db @DB
             "save design-hash"
-            (println @(-> @design-hash USER PROJ)) 
             (if (nil?  (get-view-key user project "design-hash"))
-            (put-document {:block_uuid @(-> @design-hash USER PROJ) :user user :project project :type "design-hash"})
-            
-            (-> (get-document ((get-view-key user project "design-hash") :id)) ;unique id
-              (update-document {:block_uuid @(-> @design-hash USER PROJ)}))
+              (put-document {:block_uuid @(-> @design-hash USER PROJ) :user user :project project :type "design-hash"})
+              
+              (-> (get-document ((get-view-key user project "design-hash") :id)) ;unique id
+                (update-document {:block_uuid @(-> @design-hash USER PROJ)}))
             )
             "save design-content"           
             (doseq [uuid @(-> @design-hash USER PROJ)] ; should add specific function for partial saving
+              (let [block_data (uuid-save-db uuid)] ; ordinary format
               (if (nil? (get-view-key user project "design-content" uuid))
-                (put-document (uuid-save-db uuid));save new block in design-content
+                (put-document block_data);save new block in design-content
                 (-> (get-document ((get-view-key user project "design-content" uuid) :id))
-                  (update-document (uuid-save-db uuid))))
-              )
+                  (update-document {:in (block_data :in) :position (block_data :position)})
+                  ))))
             "send result msg to front-end"
-            (ref-set OUTPUT {:result "success" :content ""})))))
+            (ref-set OUTPUT {:result "success"})))))
 
 (defn load-design [user project]
   ;{"user" : "ZY", "project" : "proj1" , "action" : "load"}
@@ -187,7 +190,7 @@
        PROJ (keyword project)
       ; project-info @(-> @design-hash USER PROJ)
        ] 
-   (println @design-hash)
+   ;(println @design-hash)
  (if (document-exists? @DB (data :template))
     (dosync 
      ; (ref-set TEMPLATE_ref  loaded-data) ;delete later, if I save template here
@@ -211,7 +214,7 @@
   (if (nil? (design-content block_id)) 
     (dosync(ref-set OUTPUT {:result "error" :content "the block does not exist" }))
     (dosync (ref-set OUTPUT {:result "success"})
-      (println block_id) 
+      ;(println block_id) 
       (ref-set design-content (dissoc @design-content block_id))
       (reset! (-> @design-hash USER PROJ) (into [](filter #(not (= (data :block) %)) @(-> @design-hash USER PROJ))))
       ))))
