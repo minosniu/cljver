@@ -115,11 +115,12 @@
       (doseq []
         ;create new design and save it into design hash!!!
         ;(ref-set design-hash (assoc-in @design-hash [USER PROJ] (atom "")));;;;;;;;
-        (ref-set design-hash (assoc-in @design-hash [(keyword user) (keyword project)] (atom "")))
+        (ref-set design-hash (assoc-in @design-hash [USER PROJ] (atom [])))
         (with-db @DB (put-document {:block_uuid [] :user user :project project :type "design-hash"}))
         (ref-set OUTPUT {:result "success" :content ((get-view-key user project "design-hash") :id)})
        
-       (println @design-hash))
+       (println @design-hash)
+       )
       (ref-set OUTPUT {:result "error" :content "project exists"})
       ) ;-> no user error, project exist error, success
     ;(ref-set OUTPUT (conj @ERROR {:project_id (str user "-" project)}))
@@ -132,16 +133,20 @@
     (println @design-hash)
   (dosync (with-db @DB
             "save design-hash"
+            (println @(-> @design-hash USER PROJ)) 
             (if (nil?  (get-view-key user project "design-hash"))
             (put-document {:block_uuid @(-> @design-hash USER PROJ) :user user :project project :type "design-hash"})
+            
             (-> (get-document ((get-view-key user project "design-hash") :id)) ;unique id
-              (update-document {:block_uuid @(-> @design-hash USER PROJ)})))
+              (update-document {:block_uuid @(-> @design-hash USER PROJ)}))
+            )
             "save design-content"           
             (doseq [uuid @(-> @design-hash USER PROJ)] ; should add specific function for partial saving
               (if (nil? (get-view-key user project "design-content" uuid))
                 (put-document (uuid-save-db uuid));save new block in design-content
                 (-> (get-document ((get-view-key user project "design-content" uuid) :id))
-                  (update-document (uuid-save-db uuid)))))
+                  (update-document (uuid-save-db uuid))))
+              )
             "send result msg to front-end"
             (ref-set OUTPUT {:result "success" :content ""})))))
 
@@ -179,15 +184,18 @@
        block-info (create-spindle-from-post loaded-data) ;@TEMPLATE_ref
        USER (keyword user)
        PROJ (keyword project)
-       project-info (-> @design-hash USER PROJ)] 
+      ; project-info @(-> @design-hash USER PROJ)
+       ] 
+   (println @design-hash)
  (if (document-exists? @DB (data :template))
     (dosync 
-      (ref-set TEMPLATE_ref  loaded-data) ;delete later, if I save template here
-      (ref-set TEMPLATE_ref (merge @TEMPLATE_ref block-info))  
-      (ref-set design-content (conj @design-content block-info)) ;design-content
-      (reset! project-info (conj @project-info (name(first(keys block-info))))) ;design-hash
+     ; (ref-set TEMPLATE_ref  loaded-data) ;delete later, if I save template here
+     ; (ref-set TEMPLATE_ref (merge @TEMPLATE_ref block-info))  
+      (ref-set design-content (conj @design-content block-info));design-content
+     ;(println @(-> @project-info USER PROJ))
+      (swap! (-> @design-hash USER PROJ) #(conj % (name(first(keys block-info))))) ;design-hash
      
-      (ref-set PROJECT_ref (merge @PROJECT_ref {:data (conj (PROJECT_ref :data) {(keyword (TEMPLATE_ref :id)) {:in (TEMPLATE_ref :in) :out (TEMPLATE_ref :out) :position (data :position)}})}))
+     ; (ref-set PROJECT_ref (merge @PROJECT_ref {:data (conj (PROJECT_ref :data) {(keyword (TEMPLATE_ref :id)) {:in (TEMPLATE_ref :in) :out (TEMPLATE_ref :out) :position (data :position)}})}))
       (ref-set OUTPUT {:result "success" :block (name(first(keys block-info)))})) ;originally name
     (dosync (ref-set OUTPUT {:result "error" :content "the template does not exist"})))))
 
@@ -322,14 +330,14 @@
           (doseq[] 
             (design-handler user project action keywordized-data)
              
-            (json/write-str @OUTPUT)
-            ;(str @design-content "\n\n" @OUTPUT)
+            ;(json/write-str @OUTPUT)
+            (str @design-content "\n\n" @OUTPUT "\n\n" @design-hash)
             ))) 
   (POST "/project" [user project action] (doseq[] (let [;input_str (json/read-json input)
                                                         ] 
                                       (project-handler user project action)
-                                      ;(str @design-hash "\n\n" @OUTPUT "\n\n" @design-content)
-                                       (json/write-str @OUTPUT)
+                                      (str @design-hash "\n\n" @OUTPUT "\n\n" @design-content)
+                                       ;(json/write-str @OUTPUT)
                                       )))
   (GET "/sirish" [] (json/write-str @OUTPUT)); need to be changed
   (route/resources "/")
