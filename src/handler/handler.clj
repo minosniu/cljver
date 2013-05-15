@@ -57,7 +57,8 @@
   "Convert from atom to value, to save in CouchDB as JSON"
   (let [UUID (keyword uuid)
         temp-name (-> @design-content UUID :template)
-        info (block-template (keyword temp-name))
+        ALL-TEMPLATE (dissoc-meta (get-document @DB temp-name))
+        info (ALL-TEMPLATE (keyword temp-name))
         temp_in (atom {})
         temp_out (atom {})]
     (doseq [in-port (keys (info :in))] 
