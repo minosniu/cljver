@@ -250,52 +250,29 @@
 
 (defn connect-block [data] 
   ;{"user" : "ZY", "project" : "proj21" , "extra":{"action" : "connect", "type" : "block", "data":  {"src":{"block": "spindle1", "port": "out"}, "dest":{"block": "spindle2", "port": "in"}}}}
- (let [out (data :src); {"block": "spindle1", "port": "out"}
-        in (data :dest);need to fix
-        out_key (keyword (out :block))
-        in_key (keyword (in :block))
-        out_pin (keyword (out :port))
-        in_pin (keyword (in :port))]
+ (let [ src (data :src); {"block": "spindle1", "port": "out"}
+        dest (data :dest);need to fix
+        src_key (keyword (src :block))
+        dest_key (keyword (dest :block))
+        src_pin (keyword (src :port))
+        dest_pin (keyword (dest :port))]
+   ;(println (-> @design-content src_key :out))
     (dosync
-      
-      
-;      (if (nil? ((PROJECT_ref :data) out_key)) (ref-set error-code (+ @error-code 1000)); output block exist?
-;        (if (nil? (((PROJECT_ref :data) out_key) out_pin)) (ref-set error-code (+ @error-code 10)))) ;output pin exist?
-;      (if (nil? ((PROJECT_ref :data) in_key)) (ref-set error-code (+ @error-code 100)); input block exist?
-;        (if (nil? (((PROJECT_ref :data) in_key) in_pin)) (ref-set error-code (+ @error-code 1)))) ;input pin exist?
-;      
-;      (cond 
-;        (>= @error-code 1000) (ref-set OUTPUT {:result "error" :content "the output block does not exist" })
-;        (>= @error-code 100) (ref-set OUTPUT {:result "error" :content "the input block does not exist" })
-;        (>= @error-code 10) (ref-set OUTPUT {:result "error" :content "the output pin does not exist" })
-;        (>= @error-code 1) (ref-set OUTPUT {:result "error" :content "the input pin does not exist" })
-;        (= @error-code 0) (doseq[] (ref-set OUTPUT {:result "success"})    
-;                            (ref-set PROJECT_ref (merge @PROJECT_ref {:data (conj (PROJECT_ref :data) {in_key (merge ((PROJECT_ref :data) in_key) {in_pin (out :block)} )} )}))
-;                            (ref-set PROJECT_ref (merge @PROJECT_ref {:data (conj (PROJECT_ref :data) {out_key (merge ((PROJECT_ref :data) out_key) {out_pin (in :block)})} )}))))
-;      (ref-set error-code 0)
+      (reset! (-> @design-content dest_key :in dest_pin) (-> @design-content src_key :out src_pin))
+      (ref-set OUTPUT {:result "success"})
       )))   
 (defn disconnect-block [data]
   ;{"user" : "ZY", "project" : "proj21" , "extra":{"action" : "connect", "type" : "block", "data":  {"src":{"block": "spindle1", "port": "out"}, "dest":{"block": "spindle2", "port": "in"}}}}
-  (let [out (data :src); {"block": "spindle1", "port": "out"}
-        in (data :dest);need to fix
-        out_key (keyword (out :block))
-        in_key (keyword (in :block))
-        out_pin (keyword (out :port))
-        in_pin (keyword (in :port))] 
+  (let [src (data :src); {"block": "spindle1", "port": "out"}
+        dest (data :dest);need to fix
+        src_key (keyword (src :block))
+        dest_key (keyword (dest :block))
+        src_pin (keyword (src :port))
+        dest_pin (keyword (dest :port))] 
     (dosync 
-      (if (nil? ((PROJECT_ref :data) out_key)) (ref-set error-code (+ @error-code 1000)); output block exist?
-        (if (nil? (((PROJECT_ref :data) out_key) out_pin)) (ref-set error-code (+ @error-code 10)))) ;output pin exist?
-      (if (nil? ((PROJECT_ref :data) in_key)) (ref-set error-code (+ @error-code 100)); input block exist?
-        (if (nil? (((PROJECT_ref :data) in_key) in_pin)) (ref-set error-code (+ @error-code 1)))) ;input pin exist?
- (cond 
-        (>= @error-code 1000) (ref-set OUTPUT {:result "error" :content "the output block does not exist" })
-        (>= @error-code 100) (ref-set OUTPUT {:result "error" :content "the input block does not exist" })
-        (>= @error-code 10) (ref-set OUTPUT {:result "error" :content "the output pin does not exist" })
-        (>= @error-code 1) (ref-set OUTPUT {:result "error" :content "the input pin does not exist" })
-        (= @error-code 0) (doseq[] (ref-set OUTPUT {:result "success"})    
-                            (ref-set PROJECT_ref (merge @PROJECT_ref {:data (conj (PROJECT_ref :data) {in_key (merge ((PROJECT_ref :data) in_key) {in_pin ""} )} )}))
-                            (ref-set PROJECT_ref (merge @PROJECT_ref {:data (conj (PROJECT_ref :data) {out_key (merge ((PROJECT_ref :data) out_key) {out_pin ""})} )}))))
-      (ref-set error-code 0))))  
+      (reset! (-> @design-content dest_key :in dest_pin) "no input")
+      (ref-set OUTPUT {:result "success"})
+      )))  
 (defn clear-block [user project]
   (let [USER (keyword user)
         PROJ (keyword project)]
@@ -355,8 +332,8 @@
   (POST "/project" [user project action] (doseq[] (let [;input_str (json/read-json input)
                                                         ] 
                                       (project-handler user project action)
-                                      ;(str @design-hash "\n\n" @OUTPUT "\n\n" @design-content)
-                                       (json/write-str @OUTPUT)
+                                      (str @design-hash "\n\n" @OUTPUT "\n\n" @design-content)
+                                       ;(json/write-str @OUTPUT)
                                       )))
   (GET "/sirish" [] (json/write-str @OUTPUT)); need to be changed
   (route/resources "/")
