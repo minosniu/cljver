@@ -60,7 +60,7 @@
         info (first (get-view "template-view" "template" {:key temp-name}))
         in (first (info :value))
         out (second (info :value ))
-        position (last (info :value))
+        position {:left @(-> @design-content UUID :position :left) :top @(-> @design-content UUID :position :top)}
         temp_in (atom {})
         temp_out (atom {})
         temp_position (atom {})]
@@ -68,10 +68,17 @@
       (reset! temp_in (conj @temp_in {in-port @(-> @design-content UUID :in in-port)}))) 
     (doseq [out-port (keys out)];output port
       (reset! temp_out (conj @temp_out {out-port (-> @design-content UUID :out out-port)}))) 
-    (doseq [coord (keys position)];position
-      (reset! temp_position (conj @temp_position {coord @(-> @design-content UUID :position coord)})))
-    {:uuid (name UUID) :in @temp_in :out @temp_out :position @temp_position :template temp-name :type "design-content"}))
+ ;   (doseq [coord (keys position)];position
+ ;     (reset! temp_position (conj @temp_position {coord @(-> @design-content UUID :position coord)})))
+    {:uuid (name UUID) :in @temp_in :out @temp_out :position position :template temp-name :type "design-content"}))
 
+(defn uuid-load-db [uuid]
+  (let [block-info (first (get-view "design-view" "design-content" {:key uuid}))
+        
+        ]
+    (println block-info)
+ ; {UUID {:in @temp_in :out  :position position :template temp-name :type "design-content"}}  
+    ))
 
 (def ERROR (ref {:result "success" :content "" :project_id ""}));result = error -> code., result=success -> ""
 (def OUTPUT (ref ""))
@@ -88,7 +95,7 @@
                                       (js/emit (str (aget doc "user") "-" (aget doc "project")) (aget doc "block_uuid")) 
                                       ))}
        :design-content {:map (fn [doc] (when (and (aget doc "in") (aget doc "out") (aget doc "uuid"))
-                                         (js/emit (aget doc "uuid") (aget doc "template"))))}  }))
+                                         (js/emit (aget doc "uuid") (to-array [(aget doc "in") (aget doc "out")  (aget doc "position") (aget doc "template") (aget doc "uuid")]))))}  }))
 
   
     (save-view 
@@ -96,7 +103,7 @@
       (view-server-fns 
         :cljs
         {:template {:map  (fn [doc] (when (and (aget doc "in") (aget doc "out") (aget doc "name"))                                     
-                                      (js/emit  (aget doc "name") (to-array [(aget doc "in") (aget doc "out") (aget doc "position")]) ) 
+                                      (js/emit  (aget doc "name") (to-array [(aget doc "in") (aget doc "out") ]) ) 
                                       )) } }))
              ;user should be added
          )
@@ -155,25 +162,27 @@
             (ref-set OUTPUT {:result "success"})))))
 
 (defn load-design [user project]
-  ;{"user" : "ZY", "project" : "proj1" , "action" : "load"}
+  ;"user" : "minos", "project" : "foo1" , "action" : "load"
   (let [USER (keyword user)
         PROJ (keyword project)]
   (dosync (with-db @DB
             "load design-hash"
             (if (nil?  (get-view-key user project "design-hash"))
-              (ref-set OUTPUT {:result "Fail" :content "No user data in DB"})
+              (ref-set OUTPUT {:result "Fail" :content "No user and project data in DB"})
               (dosync (ref-set design-hash (assoc-in @design-hash [USER PROJ] (atom ((get-view-key user project "design-hash") :value))))
               (ref-set OUTPUT {:result "success" :content ((get-view-key user project "design-hash") :id)})
-             )
-              )
-            "load design-content"
-            (doseq [uuid @(-> @design-hash USER PROJ)] 
-              (if (nil? (get-view-key user project "design-content" uuid))
-                ();(ref-set OUTPUT {:result "success"})
-                (doseq [] (ref-set OUTPUT {:result "success" :content @design-content})
-                  (ref-set design-content (get-document @DB ((get-view-key user project "design-content" uuid):id))));need to correct!
-                ;(ref-set design-content (assoc-in @design-content [(keyword uuid)](atom ((get-view-key user project "design-content" uuid) ))))
-                ))
+              "load design-content"
+              (doseq [uuid @(-> @design-hash USER PROJ)] 
+                (if (nil? (get-view-key user project "design-content" uuid))
+                  ();(ref-set OUTPUT {:result "success"})
+                  (doseq [] (ref-set OUTPUT {:result "success" :content ""})
+                    (ref-set design-content (dissoc-meta (get-document ((get-view-key user project "design-content" uuid) :id))))
+                    );need to correct!
+                  ;(ref-set design-content (assoc-in @design-content [(keyword uuid)](atom ((get-view-key user project "design-content" uuid) ))))
+                  ))
+              ))
+            
+
             ))))
     
 (comment
@@ -186,6 +195,7 @@
  ;{"user" : "ZY", "project" : "proj21" , "action" : "new",  "data": {"template": "loeb-spindle", "position": {"left": 20, "top": 30}}}
  (let [loaded-data (conj data (dissoc-meta (get-document @DB (data :template))))
        block-info (create-spindle-from-post loaded-data) ;@TEMPLATE_ref
+       block-id (first (keys block-info))
        USER (keyword user)
        PROJ (keyword project)
       ; project-info @(-> @design-hash USER PROJ)
@@ -193,15 +203,17 @@
    ;(println @design-hash)
  (if (document-exists? @DB (data :template))
     (dosync 
-     ; (ref-set TEMPLATE_ref  loaded-data) ;delete later, if I save template here
-     ; (ref-set TEMPLATE_ref (merge @TEMPLATE_ref block-info))  
+      "save design-content into memory"
       (ref-set design-content (conj @design-content block-info));design-content
-     ;(println @(-> @project-info USER PROJ))
-      (swap! (-> @design-hash USER PROJ) #(conj % (name(first(keys block-info))))) ;design-hash
-     
+      (println (first (keys block-info)))
+      (reset! (-> @design-content block-id :position :left) (-> data :position :left))  ;position-left
+      (reset! (-> @design-content block-id :position :top) (-> data :position :top))   ;position-top
+      "save design-hash into memory"
+     (swap! (-> @design-hash USER PROJ) #(conj % (name(first(keys block-info))))) ;design-hash
+
      ; (ref-set PROJECT_ref (merge @PROJECT_ref {:data (conj (PROJECT_ref :data) {(keyword (TEMPLATE_ref :id)) {:in (TEMPLATE_ref :in) :out (TEMPLATE_ref :out) :position (data :position)}})}))
       (ref-set OUTPUT {:result "success" :block (name(first(keys block-info)))})) ;originally name
-    (dosync (ref-set OUTPUT {:result "error" :content "the template does not exist"})))))
+     (dosync (ref-set OUTPUT {:result "error" :content "the template does not exist"})))))
 
 ;(reset! (-> @design-content :uuid2 :in :gamma_dyn) "some_wierd_input")
 ; when received USER and PROJ, use (-> @design-hash (keyword USER) (keyword PROJ)) to retrive the uuid list
@@ -334,8 +346,8 @@
           (doseq[] 
             (design-handler user project action keywordized-data)
              
-            (json/write-str @OUTPUT)
-            ;(str @design-content "\n\n" @OUTPUT "\n\n" @design-hash)
+            ;(json/write-str @OUTPUT)
+            (str @design-content "\n\n" @OUTPUT "\n\n" @design-hash)
             ))) 
   (POST "/project" [user project action] (doseq[] (let [;input_str (json/read-json input)
                                                         ] 
