@@ -55,6 +55,7 @@
 
 (defn uuid-save-db [uuid]
   "Convert from atom to value, to save in CouchDB as JSON"
+  (println (first (get-view "template-view" "template" {:key "loeb-spindle"})))
   (let [UUID (keyword uuid)
         temp-name (-> @design-content UUID :template)    
         info (first (get-view "template-view" "template" {:key temp-name}))
@@ -73,11 +74,17 @@
     {:uuid (name UUID) :in @temp_in :out @temp_out :position position :template temp-name :type "design-content"}))
 
 (defn uuid-load-db [uuid]
-  (let [block-info (first (get-view "design-view" "design-content" {:key uuid}))
-        
+  (let [UUID (keyword uuid)
+        block-info (first (get-view "design-view" "design-content" {:key uuid}))
+        in (first (block-info :value))
+        out (second (block-info :value))
+        position (second (rest (block-info :value)))
+        temp-name (last (block-info :value))
+        temp_in (atom {})
         ]
-    (println block-info)
- ; {UUID {:in @temp_in :out  :position position :template temp-name :type "design-content"}}  
+    (doseq [in-port (keys in)] ;input data are converted to atom
+      (reset! temp_in (conj @temp_in {in-port (atom (in in-port))}))) 
+    {UUID {:in @temp_in :out out :position {:left (atom (position :left)) :top (atom (position :top))} :template temp-name}}  
     ))
 
 (def ERROR (ref {:result "success" :content "" :project_id ""}));result = error -> code., result=success -> ""
@@ -95,7 +102,7 @@
                                       (js/emit (str (aget doc "user") "-" (aget doc "project")) (aget doc "block_uuid")) 
                                       ))}
        :design-content {:map (fn [doc] (when (and (aget doc "in") (aget doc "out") (aget doc "uuid"))
-                                         (js/emit (aget doc "uuid") (to-array [(aget doc "in") (aget doc "out")  (aget doc "position") (aget doc "template") (aget doc "uuid")]))))}  }))
+                                         (js/emit (aget doc "uuid") (to-array [(aget doc "in") (aget doc "out")  (aget doc "position") (aget doc "template")]))))}  }))
 
   
     (save-view 
@@ -153,7 +160,7 @@
             "save design-content"           
             (doseq [uuid @(-> @design-hash USER PROJ)] ; should add specific function for partial saving
               (let [block_data (uuid-save-db uuid)] ; ordinary format
-              (if (nil? (get-view-key user project "design-content" uuid))
+              (if (nil? (get-view-key user project "design-content" uuid))  
                 (put-document block_data);save new block in design-content
                 (-> (get-document ((get-view-key user project "design-content" uuid) :id))
                   (update-document {:in (block_data :in) :position (block_data :position)})
@@ -176,7 +183,7 @@
                 (if (nil? (get-view-key user project "design-content" uuid))
                   ();(ref-set OUTPUT {:result "success"})
                   (doseq [] (ref-set OUTPUT {:result "success" :content ""})
-                    (ref-set design-content (dissoc-meta (get-document ((get-view-key user project "design-content" uuid) :id))))
+                    (ref-set design-content (merge @design-content (uuid-load-db uuid)))
                     );need to correct!
                   ;(ref-set design-content (assoc-in @design-content [(keyword uuid)](atom ((get-view-key user project "design-content" uuid) ))))
                   ))
@@ -352,8 +359,8 @@
   (POST "/project" [user project action] (doseq[] (let [;input_str (json/read-json input)
                                                         ] 
                                       (project-handler user project action)
-                                      ;(str @design-hash "\n\n" @OUTPUT "\n\n" @design-content)
-                                       (json/write-str @OUTPUT)
+                                      (str @design-hash "\n\n" @OUTPUT "\n\n" @design-content)
+                                       ;(json/write-str @OUTPUT)
                                       )))
   (GET "/sirish" [] (json/write-str @OUTPUT)); need to be changed
   (route/resources "/")
