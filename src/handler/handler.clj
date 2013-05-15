@@ -25,22 +25,20 @@
     {:minos {:foo1 (atom ["uuid1"
                           "uuid2"
                           ])}
-     :ZY {:proj1 (atom ["uuid7"
-                          "uuid8"
-                          "uuid9"])}
-     :kangwoo {:foo1 (atom ["uuid4"
-                            "uuid5"
-                            "uuid6"])}}))
+    ; :kangwoo {:foo1 (atom ["uuid4"
+    ;                        "uuid5"
+     ;                       "uuid6"])}
+    }))
 (def design-content 
   (ref 
     {:uuid1 
      {:in {:gamma_dyn (atom "no_input") :lce (atom "no_input")} 
-      :out {:ii "ii_block1" :ia "ia_block1"}
+      :out {:ii "ii_uuid1" :ia "ia_uuid1"}
       :position  {:left (atom 20) :top (atom 30)}
       :template "loeb-spindle"}
      :uuid2
      {:in {:gamma_dyn (atom "no_input") :lce (atom "no_input")} 
-      :out {:ii "ii_block2" :ia "ia_block2"}
+      :out {:ii "ii_uuid2" :ia "ia_uuid2"}
       :position  {:left (atom 50) :top (atom 10)}
       :template "loeb-spindle"}}))
 
@@ -73,6 +71,7 @@
     {:uuid (name UUID) :in @temp_in :out @temp_out :position position :template temp-name :type "design-content"}))
 
 (defn uuid-load-db [uuid]
+  "Convert DB data to reference and atom, and save them to memory"
   (let [UUID (keyword uuid)
         block-info (first (get-view "design-view" "design-content" {:key uuid}))
         in (first (block-info :value))
@@ -91,28 +90,27 @@
 (def error-code (ref 0)) ; for diverse error with connection&disconnection
 
 ;
-(with-db @DB
-"save-view: design-view and project-view"
-  (save-view 
-    "design-view"
-    (view-server-fns 
-      :cljs
-      {:design-hash {:map (fn [doc] (when (and (aget doc "user") (aget doc "project") (aget doc "block_uuid"))
-                                      (js/emit (str (aget doc "user") "-" (aget doc "project")) (aget doc "block_uuid")) 
-                                      ))}
-       :design-content {:map (fn [doc] (when (and (aget doc "in") (aget doc "out") (aget doc "uuid"))
-                                         (js/emit (aget doc "uuid") (to-array [(aget doc "in") (aget doc "out")  (aget doc "position") (aget doc "template")]))))}  }))
-
-  
-    (save-view 
-      "template-view"
-      (view-server-fns 
-        :cljs
-        {:template {:map  (fn [doc] (when (and (aget doc "in") (aget doc "out") (aget doc "name"))                                     
-                                      (js/emit  (aget doc "name") (to-array [(aget doc "in") (aget doc "out") ]) ) 
-                                      )) } }))
-             ;user should be added
-         )
+;(with-db @DB
+;"save-view: design-view and project-view"
+;  (save-view 
+;    "design-view"
+;    (view-server-fns 
+;      :cljs
+;      {:design-hash {:map (fn [doc] (when (and (aget doc "user") (aget doc "project") (aget doc "block_uuid"))
+;                                      (js/emit (str (aget doc "user") "-" (aget doc "project")) (aget doc "block_uuid")) 
+;                                      ))}
+;       :design-content {:map (fn [doc] (when (and (aget doc "in") (aget doc "out") (aget doc "uuid"))
+;                                         (js/emit (aget doc "uuid") (to-array [(aget doc "in") (aget doc "out")  (aget doc "position") (aget doc "template")]))))}  }))
+;
+;    (save-view 
+;      "template-view"
+;      (view-server-fns 
+;        :cljs
+;        {:template {:map  (fn [doc] (when (and (aget doc "in") (aget doc "out") (aget doc "name"))                                     
+;                                      (js/emit  (aget doc "name") (to-array [(aget doc "in") (aget doc "out") ]) ) 
+;                                      )) } }))
+;             ;user should be added
+;         )
 
 (defn get-view-key [user project type & uuid]
   "get a key of each view"
@@ -130,18 +128,14 @@
       ]
   (dosync  (with-db @DB
     (if (nil? (get-view-key user project "design-hash"))
-      ;(when (= (ERROR :content) "") (put-document @DB (conj {:user user :project project :block_uuid [] :type "design-hash"} {:_id (str user "-" project)})))
-      ;(when-not (= 1 (ERROR :code)) (ref-set ERROR (merge @ERROR {:result "error" :content "the project already exists" :project_id ""})))
       (doseq []
         ;create new design and save it into design hash!!!
         ;(ref-set design-hash (assoc-in @design-hash [USER PROJ] (atom "")));;;;;;;;
         (ref-set design-hash (assoc-in @design-hash [USER PROJ] (atom [])))
         (with-db @DB (put-document {:block_uuid [] :user user :project project :type "design-hash"}))
-        (ref-set OUTPUT {:result "success" :content ((get-view-key user project "design-hash") :id)})
-       )
+        (ref-set OUTPUT {:result "success" :content ((get-view-key user project "design-hash") :id)}))
       (ref-set OUTPUT {:result "error" :content "project exists"})
       ) ;-> no user error, project exist error, success
-    ;(ref-set OUTPUT (conj @ERROR {:project_id (str user "-" project)}))
 ))))
 
 (defn save-design [user project]
@@ -181,7 +175,7 @@
               (doseq [uuid @(-> @design-hash USER PROJ)] 
                 (if (nil? (get-view-key user project "design-content" uuid))
                   ();(ref-set OUTPUT {:result "success"})
-                  (doseq [] (ref-set OUTPUT {:result "success" :content ""})
+                  (doseq [] (ref-set OUTPUT {:result "success" :content ((get-view-key user project "design-content" uuid) :id)})
                     (ref-set design-content (merge @design-content (uuid-load-db uuid)))
                     );need to correct!
                   ;(ref-set design-content (assoc-in @design-content [(keyword uuid)](atom ((get-view-key user project "design-content" uuid) ))))
@@ -326,8 +320,8 @@
           (doseq[] 
             (design-handler user project action keywordized-data)
              
-            (json/write-str @OUTPUT)
-            ;(str @design-content "\n\n" @OUTPUT "\n\n" @design-hash)
+            ;(json/write-str @OUTPUT)
+            (str @design-content "\n\n" @OUTPUT "\n\n" @design-hash)
             ))) 
   (POST "/project" [user project action] (doseq[] (let [;input_str (json/read-json input)
                                                         ] 
