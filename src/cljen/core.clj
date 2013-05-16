@@ -102,16 +102,18 @@
 ;        (let [wire @(in-links slot)] 
 ;          (prn (<< ".~(name slot)(~{wire}))")))))))
 
+
 (defn list-inslot-wire [block]
   (for [[slot wire] (block :in)]
-    (<< ".~(name slot)(~{@wire})")))
+    (<<  ".~(name slot)(~{@wire})")))
+
 
 (defn list-outslot-wire [block]
   (for [[slot wire] (block :out)]
-    (<< ".~(name slot)(~{wire})")))
+   (<< ".~(name slot)(~{wire})")))
 
 (defn imprint [lines]
-  (doseq [line lines] (println line)))
+  (reduce #(str %1 "\n" %2) lines))
 
 ;(def spindle (create-spindle "uuid"))
 (def spindle (create-spindle))
