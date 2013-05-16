@@ -238,7 +238,7 @@
       (let [UUID (keyword  uuid)]
     ;(ref-set verilog (str @verilog (imprint (list-inslot-wire (-> @design-content UUID)))))
     ;(ref-set verilog (str @verilog (imprint (list-outslot-wire (-> @design-content UUID)))))
-    (ref-set OUTPUT {:result "success" :content (imprint (list-inslot-wire (-> @design-content UUID)))})
+    (ref-set OUTPUT {:result "success" :content "module verilog endmodule"})
     )))))
 
 ;Handlers
