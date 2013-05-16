@@ -243,7 +243,7 @@
     )))))
 
 ;Handlers
-(defn design-handler [user project action & data]
+(defn design-handler [user project action data]
     (case action
       "save" (save-design user project)
       "new" (new-block user project data) ;find block from library and save in project in memory
