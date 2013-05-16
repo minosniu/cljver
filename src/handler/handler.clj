@@ -228,9 +228,19 @@
       (doseq [uuid @(-> @design-hash USER PROJ)]
         (ref-set design-content (dissoc @design-content (keyword uuid)))))
     (reset! (-> @design-hash USER PROJ) [])))
+(defn generate-verilog [user project]
+  (let [USER (keyword user)
+        PROJ (keyword project)]
+    (println "verilog generating code")
+    (doseq [uuid @(-> @design-hash USER PROJ)]
+      (let [UUID (keyword  uuid)]
+      (imprint (list-inslot-wire (-> @design-content UUID))) 
+      (imprint (list-outslot-wire (-> @design-content  UUID))))
+      
+    )))
 
 ;Handlers
-(defn design-handler [user project action data]
+(defn design-handler [user project action & data]
     (case action
       "save" (save-design user project)
       "new" (new-block user project data) ;find block from library and save in project in memory
@@ -239,6 +249,7 @@
       "connect" (connect-block data);change two block pin info in project in memory
       "disconnect" (disconnect-block data);change two block pin info in project in memory
       "move" (move-block data) ; change block position in project in memory 
+      "generate" (generate-verilog user project)
       ))
 (defn project-handler [user project action]
   (case action
