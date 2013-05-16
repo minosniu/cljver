@@ -233,13 +233,13 @@
 (defn generate-verilog [user project]
   (let [USER (keyword user)
         PROJ (keyword project)]
-    (dosync (ref-set verilog {})
+    (dosync (ref-set verilog "")
     (doseq [uuid @(-> @design-hash USER PROJ)]
       (let [UUID (keyword  uuid)
-            code (verilog UUID)]
-    (imprint (list-inslot-wire (-> @design-content UUID)))
-    (imprint (list-outslot-wire (-> @design-content  UUID)))
-    (ref-set OUTPUT {:result "success" :content (imprint (list-inslot-wire (-> @design-content UUID)))})
+            ]
+    (ref-set verilog (str @verilog (imprint (list-inslot-wire (-> @design-content UUID)))))
+    (ref-set verilog (str @verilog (imprint (list-outslot-wire (-> @design-content UUID)))))
+    (ref-set OUTPUT {:result "success" :content (json/write-str @verilog)})
     )))))
 
 ;Handlers
