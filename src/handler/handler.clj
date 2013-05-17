@@ -117,8 +117,8 @@
       (doseq []
         (ref-set design-hash (assoc-in @design-hash [USER PROJ] (atom [])))
         (with-db @DB (put-document {:block_uuid [] :user user :project project :type "design-hash"}))
-        (ref-set OUTPUT {:result "success" :content ((get-view-key user project "design-hash") :id)}))
-      (ref-set OUTPUT {:result "error" :content "project exists"})
+        {:result "success" :content ((get-view-key user project "design-hash") :id)});test mode
+      {:result "error" :content "project exists"};test mode
       ))))) ;-> no user error, project exist error, success
 
 (defn save-design [user project]
@@ -139,7 +139,7 @@
                 (-> (get-document ((get-view-key user project "design-content" uuid) :id))
                   (update-document {:in (block_data :in) :position (block_data :position)})))))
             "send result msg to front-end"
-            (ref-set OUTPUT {:result "success"})))))
+            {:result "success"})))) ;test mode
 
 (defn load-design [user project]
   ;"user" : "minos", "project" : "foo1" , "action" : "load"
@@ -148,16 +148,18 @@
   (dosync (with-db @DB
             "load design-hash"
             (if (nil?  (get-view-key user project "design-hash"))
-              (ref-set OUTPUT {:result "Fail" :content "No user and project data in DB"})
+              {:result "Fail" :content "No user and project data in DB"};test mode
               (dosync (ref-set design-hash (assoc-in @design-hash [USER PROJ] (atom ((get-view-key user project "design-hash") :value))))
-              (ref-set OUTPUT {:result "success" :content ((get-view-key user project "design-hash") :id)})
+               
               "load design-content"
               (doseq [uuid @(-> @design-hash USER PROJ)] 
                 (if (nil? (get-view-key user project "design-content" uuid))
                   ();it shouldn't happen
                   (doseq [] ;(ref-set OUTPUT {:result "success" :content ((get-view-key user project "design-content" uuid) :id)})
                     (ref-set design-content (merge @design-content (uuid-load-db uuid)))
-                    )))))))))
+                    )))
+              {:result "success" :content ((get-view-key user project "design-hash") :id)};test mode
+              ))))))
  ;Design functions
 (defn new-block [user project data]
  ;"user" : "kangwoo", "project" : "foo5" , "action" : "new",  "data": {"template": "loeb-spindle", "position": {"left": 20, "top": 30}}
@@ -174,8 +176,10 @@
       (reset! (-> @design-content block-id :position :top) (-> data :position :top))   ;position-top
       "save design-hash into memory"
       (swap! (-> @design-hash USER PROJ) #(conj % (name(first(keys block-info))))) ;design-hash
-      (ref-set OUTPUT {:result "success" :block (name(first(keys block-info)))})) ;originally name
-    (dosync (ref-set OUTPUT {:result "error" :content "the template does not exist"})))))
+       {:result "success" :block (name(first(keys block-info)))};test mode
+      ) ;originally name
+    {:result "error" :content "the template does not exist"};test mode
+      )))
 
 (defn delete-block [user project data]
   ;"user" : "kangwoo", "project" : "foo5" , "action" : "delete", "data": {"block": "uuid1"}
@@ -183,35 +187,40 @@
         PROJ (keyword project)
         block_id (keyword (data :block))]
   (if (nil? (design-content block_id)) 
-    (dosync(ref-set OUTPUT {:result "error" :content "the block does not exist" }))
-    (dosync (ref-set OUTPUT {:result "success"})
+     {:result "error" :content "the block does not exist" };test mode
+    (dosync 
       (ref-set design-content (dissoc @design-content block_id))
-      (reset! (-> @design-hash USER PROJ) (into [](filter #(not (= (data :block) %)) @(-> @design-hash USER PROJ))))))))
+      (reset! (-> @design-hash USER PROJ) (into [](filter #(not (= (data :block) %)) @(-> @design-hash USER PROJ))))
+      {:result "success"};test mode
+      ))))
 
 (defn move-block [data]
   ;"user" : "kangwoo", "project" : "foo5" , "action" : "move", "data":  {"block": "spindle1", "position": {"left": 33, "top": 21}}
   (let [block_id (keyword (data :block))
         position (data :position)]
     (dosync (if (nil? (design-content block_id)) 
-              (ref-set OUTPUT {:result "error" :content "the block does not exist" })
+               {:result "error" :content "the block does not exist" };test mode
               (doseq[] (reset! (-> @design-content block_id :position :left)  (position :left)) 
                 (reset! (-> @design-content block_id :position :top)  (position :top)) 
-                (ref-set OUTPUT {:result "success"}))))))
+                {:result "success"};test mode
+                )))))
 
 (defn connect-block [data] 
-  ;"user" : "kangwoo", "project" : "foo5" , "action" : "connect", "data":  {"src":{"block": "spindle1", "port": "out"}, "dest":{"block": "spindle2", "port": "in"}}
+  ;"user" : "kangwoo", "project" : "foo5" , "action" : "connect", "data":  {"src":{"block": "spindle1", "port": "ii"}, "dest":{"block": "spindle2", "port": "gamma_dyn"}}
  (let [ src (data :src); {"block": "spindle1", "port": "out"}
         dest (data :dest)
         src_key (keyword (src :block))
         dest_key (keyword (dest :block))
         src_pin (keyword (src :port))
         dest_pin (keyword (dest :port))]
+   (println (-> @design-content dest_key :in dest_pin))
     (dosync
       (reset! (-> @design-content dest_key :in dest_pin) (-> @design-content src_key :out src_pin))
-      (ref-set OUTPUT {:result "success"}))))   
+       {:result "success"}
+      )))   
 
 (defn disconnect-block [data]
-  ;"user" : "kangwoo", "project" : "foo5" , "action" : "connect", "data":  {"src":{"block": "spindle1", "port": "out"}, "dest":{"block": "spindle2", "port": "in"}}
+  ;"user" : "kangwoo", "project" : "foo5" , "action" : "connect", "data":  {"src":{"block": "spindle1", "port": "ii"}, "dest":{"block": "spindle2", "port": "gamma_dyn"}}
   (let [src (data :src); {"block": "spindle1", "port": "out"}
         dest (data :dest)
         src_key (keyword (src :block))
@@ -220,7 +229,8 @@
         dest_pin (keyword (dest :port))] 
     (dosync 
       (reset! (-> @design-content dest_key :in dest_pin) "no input")
-      (ref-set OUTPUT {:result "success"}))))  
+      {:result "success"};test mode
+      )))  
 
 (defn clear-block [user project]
   (let [USER (keyword user)
@@ -228,18 +238,20 @@
     (dosync 
       (doseq [uuid @(-> @design-hash USER PROJ)]
         (ref-set design-content (dissoc @design-content (keyword uuid)))))
-    (reset! (-> @design-hash USER PROJ) [])))
+    (reset! (-> @design-hash USER PROJ) [])
+    {:result "success"}
+    ))
 
 (defn generate-verilog [user project]
   (let [USER (keyword user)
         PROJ (keyword project)]
-    (dosync (ref-set verilog "")
     (doseq [uuid @(-> @design-hash USER PROJ)]
       (let [UUID (keyword  uuid)]
-    ;(ref-set verilog (str @verilog (imprint (list-inslot-wire (-> @design-content UUID)))))
-    ;(ref-set verilog (str @verilog (imprint (list-outslot-wire (-> @design-content UUID)))))
-    (ref-set OUTPUT {:result "success" :content "module verilog endmodule"})
-    )))))
+    (dosync (ref-set verilog (str @verilog (imprint (list-outslot-wire (-> @design-content UUID))))))
+    (imprint (list-inslot-wire (-> @design-content UUID)))
+    (imprint (list-outslot-wire (-> @design-content UUID)));test mode
+    ))))
+;(reduce #(str %1 "\n" %2) lines)
 
 ;Handlers
 (defn design-handler [user project action data]
@@ -266,18 +278,14 @@
 ;                               (json/write-str @OUTPUT))))  
   (POST "/design" [user project action data & debugging] 
         (let [keywordized-data (json/read-json data true)]
-          (doseq[] 
-            (design-handler user project action keywordized-data)
-            (if (empty? debugging)
-              (json/write-str @OUTPUT)
-              (str @design-hash "\n\n" @design-content "\n\n" @OUTPUT))))) 
+           (if (empty? debugging)
+            (json/write-str (design-handler user project action keywordized-data))
+            (str (json/write-str (design-handler user project action keywordized-data)) @design-hash @design-content)))) 
 
   (POST "/project" [user project action & debugging] 
-        (doseq[] 
-          (project-handler user project action)
           (if (empty? debugging)
-            (json/write-str @OUTPUT)
-            (str @design-hash "\n\n" @design-content "\n\n" @OUTPUT))))
+            (json/write-str (project-handler user project action))
+            (str (json/write-str (project-handler user project action)) @design-hash @design-content)))
   (GET "/sirish" [] (json/write-str @OUTPUT)); need to be changed
   (route/resources "/")
   (route/not-found "Not Found"))
