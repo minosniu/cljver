@@ -41,7 +41,7 @@
       :template "loeb-spindle"}
      ;another template
      }) 
-(def OUTPUT (ref ""))
+
 (def verilog (ref ""))
 
 ;DB-views
@@ -229,8 +229,7 @@
         dest_pin (keyword (dest :port))] 
     (dosync 
       (reset! (-> @design-content dest_key :in dest_pin) "no input")
-      {:result "success"};test mode
-      )))  
+      {:result "success"})))  
 
 (defn clear-block [user project]
   (let [USER (keyword user)
@@ -247,10 +246,12 @@
         PROJ (keyword project)]
     (doseq [uuid @(-> @design-hash USER PROJ)]
       (let [UUID (keyword  uuid)]
-    (dosync (ref-set verilog (str @verilog (imprint (list-outslot-wire (-> @design-content UUID))))))
+        (str 
     (imprint (list-inslot-wire (-> @design-content UUID)))
-    (imprint (list-outslot-wire (-> @design-content UUID)));test mode
-    ))))
+    (imprint (list-outslot-wire (-> @design-content UUID))))
+    )))
+  {:result "success" :content (str "modulefoo" \n "endmodule")}
+  )
 ;(reduce #(str %1 "\n" %2) lines)
 
 ;Handlers
