@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<link rel="stylesheet" type="text/css" href="/static/bootstrap.min.css">
+	<link rel="stylesheet" type="text/css" href="/static/style.css">
+	<script type="text/javascript" src="/static/jquery-1.9.1.min.js"></script>
+	<script type="text/javascript" src="/static/bootstrap.min.js"></script>
+</head>
+
+<body>
+	<div class="signup_form">
+		<form class="form-horizontal" method="POST">
+			{{ form.hidden_tag() }}
+			{% with messages = get_flashed_messages() %}
+			{% if form.username.errors or messages %}
+			<div class="control-group error">
+			{% else %}
+			<div class="control-group">
+			{% endif %}
+				{{ form.username.label(class='control-label') }}
+				<div class="controls">
+					{{ form.username() }}
+					{% for error in form.username.errors %}
+					<span class='help-inline'>{{ error }}</span>
+					{% endfor %}
+					{% if messages %}
+						{% for message in messages %}
+						<span class='help-inline'>{{ message }}</span>
+						{% endfor %}
+					{% endif %}
+				</div>
+			</div>
+			{% endwith %}
+			{% if form.password.errors %}
+			<div class="control-group error">
+			{% else %}
+			<div class="control-group">
+			{% endif %}
+				{{ form.password.label(class='control-label') }}
+				<div class="controls">
+					{{ form.password() }}
+					{% for error in form.password.errors %}
+					<span class='help-inline'>{{ error }}</span>
+					{% endfor %}
+				</div>
+			</div>
+			<div class="control-group">
+				{{ form.confirm_password.label(class='control-label') }}
+				<div class="controls">
+					{{ form.confirm_password() }}
+				</div>
+			</div>
+			<div class="control-group">
+				<div class="controls">
+					<button type='submit' class='btn'>Sign Up</button>
+				</div>
+			</div>
+		</form>
+	</div>
+</body>
+</html>

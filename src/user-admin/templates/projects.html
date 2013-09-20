@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<link rel="stylesheet" type="text/css" href="/static/bootstrap.min.css">
+	<link rel="stylesheet" type="text/css" href="/static/style.css">
+	<script type="text/javascript" src="/static/jquery-1.9.1.min.js"></script>
+	<script type="text/javascript" src="/static/bootstrap.min.js"></script>
+	<script type="text/javascript" src="/static/globals.js"></script>
+	<script type="text/javascript" src="/static/projects.js"></script>
+</head>
+<body>
+	<div class="projects_section">
+		<h2>Welcome back, {{ username }}!</h2>
+		{% if error %}
+		<div class="alert">
+  			<button type="button" class="close" data-dismiss="alert">&times;</button>
+  			<strong>Error!</strong> {{ error }}
+		</div>
+		{% endif %}
+		<form method="post" id="projects_form">
+			<input type='hidden' id='project_action' name="project_action">
+			<select multiple name="project_name">
+				{% for project in projects %}
+					<option value="{{ project.name }}">{{ project.name }}</option>
+				{% endfor %}
+			</select>
+			<button type="submit" class="btn" id="open_project">Open</button>
+			<br>
+			<input id="project_new_name" name="project_name" placeholder="Name for new project here">
+			<button type="submit" class="btn" id="create_project">New project</button>
+		</form>
+	</div>
+
+</body>
+</html>

@@ -1,0 +1,10 @@
+CouchDB==0.8
+Flask==0.9
+Flask-CouchDB==0.2.1
+Flask-Login==0.1.3
+Jinja2==2.6
+Werkzeug==0.8.3
+http-parser==0.8.1
+restkit==4.2.1
+socketpool==0.5.2
+wsgiref==0.1.2

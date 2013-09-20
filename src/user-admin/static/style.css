@@ -1,0 +1,67 @@
+/*Login page*/
+.login_form {
+	width: 500px;
+	margin: 200px auto;
+}
+
+
+/*signup page*/
+.signup_form {
+	width: 500px;
+	margin: 200px auto;
+}
+
+/*projects page*/
+
+.projects_section {
+	width: 700px;
+	margin: 100px auto;
+}
+
+
+.projects_section select {
+	height: 300px;
+}
+
+/*Index page*/
+
+#library {
+	width: 150px;
+	border: 1px solid black;
+	padding: 30px;
+	position: absolute;
+	overflow: visible;
+}
+
+#container {
+	width: 90%;
+	height: 100%;
+	padding: 30px;
+	margin-left: 250px;
+}
+
+
+.libBlock {
+	width: 150px;
+	height: 50px;
+	border: 1px solid black;
+	background-color: #ddddff;
+	position: absolute;
+}
+
+.title {
+	cursor: move;
+	text-align: center;
+}
+
+.targetEP {
+	color: green;
+}
+
+.sourceEP {
+	background-color: yellow;
+}
+
+.blockOverlay {
+	font-size: 10px;
+}
